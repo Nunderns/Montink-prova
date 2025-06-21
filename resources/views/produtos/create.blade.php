@@ -9,7 +9,7 @@
 
 <div class="card">
     <div class="card-body">
-        <form action="{{ route('produtos.store') }}" method="POST">
+        <form action="{{ route('produtos.store') }}" method="POST" enctype="multipart/form-data">
             @include('produtos._form')
         </form>
     </div>

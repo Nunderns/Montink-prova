@@ -3,11 +3,27 @@
 namespace App\Http\Controllers;
 
 use App\Models\Produto;
+use App\Models\Estoque;
+use App\Http\Requests\StoreProdutoRequest;
+use App\Http\Requests\UpdateProdutoRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class ProdutoController extends Controller
 {
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        // Apply auth middleware to all methods except index and show
+        $this->middleware('auth')->except(['index', 'show']);
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -33,15 +49,18 @@ class ProdutoController extends Controller
         DB::beginTransaction();
         
         try {
-            // Cria o produto
-            $produto = Produto::create([
-                'nome' => $request->nome,
-                'descricao' => $request->descricao,
-                'preco' => $request->preco,
-                'ativo' => true,
-            ]);
-
-            // Adiciona variações/estoque
+            $data = $request->validated();
+            $data['slug'] = Str::slug($data['nome']);
+            
+            // Handle image upload
+            if ($request->hasFile('imagem')) {
+                $path = $request->file('imagem')->store('produtos', 'public');
+                $data['imagem'] = $path;
+            }
+            
+            $produto = Produto::create($data);
+            
+            // Adiciona variações de estoque
             if ($request->has('variacoes')) {
                 foreach ($request->variacoes as $variacao) {
                     $produto->estoque()->create([
@@ -51,21 +70,22 @@ class ProdutoController extends Controller
                     ]);
                 }
             } else {
-                // Se não houver variações, cria um registro de estoque padrão
+                // Cria um registro de estoque padrão se não houver variações
                 $produto->estoque()->create([
-                    'quantidade' => 0,
-                    'quantidade_minima' => 0,
+                    'variacao' => 'Padrão',
+                    'quantidade' => $request->estoque,
+                    'quantidade_minima' => 5,
                 ]);
             }
-
-
+            
             DB::commit();
+            
             return redirect()->route('produtos.index')
                 ->with('success', 'Produto criado com sucesso!');
                 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withInput()->with('error', 'Erro ao criar produto: ' . $e->getMessage());
+            return back()->with('error', 'Erro ao criar produto: ' . $e->getMessage());
         }
     }
 
@@ -95,46 +115,73 @@ class ProdutoController extends Controller
         DB::beginTransaction();
         
         try {
-            // Atualiza o produto
-            $produto->update([
-                'nome' => $request->nome,
-                'descricao' => $request->descricao,
-                'preco' => $request->preco,
-            ]);
-
-            // Atualiza ou cria variações/estoque
+            $data = $request->validated();
+            
+            if ($request->has('nome')) {
+                $data['slug'] = Str::slug($request->nome);
+            }
+            
+            // Handle image upload
+            if ($request->hasFile('imagem')) {
+                // Remove a imagem antiga se existir
+                if ($produto->imagem) {
+                    Storage::disk('public')->delete($produto->imagem);
+                }
+                
+                $path = $request->file('imagem')->store('produtos', 'public');
+                $data['imagem'] = $path;
+            } elseif ($request->has('remove_imagem')) {
+                // Remove a imagem se o checkbox estiver marcado
+                if ($produto->imagem) {
+                    Storage::disk('public')->delete($produto->imagem);
+                    $data['imagem'] = null;
+                }
+            }
+            
+            $produto->update($data);
+            
+            // Atualiza ou cria variações de estoque
             if ($request->has('variacoes')) {
                 $variacoesIds = [];
                 
                 foreach ($request->variacoes as $variacao) {
-                    $estoqueData = [
-                        'variacao' => $variacao['nome'],
-                        'quantidade' => $variacao['quantidade'],
-                        'quantidade_minima' => $variacao['quantidade_minima'] ?? 0,
-                    ];
-                    
                     if (isset($variacao['id'])) {
                         // Atualiza variação existente
-                        $produto->estoque()->where('id', $variacao['id'])->update($estoqueData);
-                        $variacoesIds[] = $variacao['id'];
+                        $estoque = Estoque::where('id', $variacao['id'])
+                            ->where('produto_id', $produto->id)
+                            ->first();
+                            
+                        if ($estoque) {
+                            $estoque->update([
+                                'variacao' => $variacao['nome'],
+                                'quantidade' => $variacao['quantidade'],
+                                'quantidade_minima' => $variacao['quantidade_minima'] ?? 0,
+                            ]);
+                            $variacoesIds[] = $estoque->id;
+                        }
                     } else {
                         // Cria nova variação
-                        $newEstoque = $produto->estoque()->create($estoqueData);
-                        $variacoesIds[] = $newEstoque->id;
+                        $novoEstoque = $produto->estoque()->create([
+                            'variacao' => $variacao['nome'],
+                            'quantidade' => $variacao['quantidade'],
+                            'quantidade_minima' => $variacao['quantidade_minima'] ?? 0,
+                        ]);
+                        $variacoesIds[] = $novoEstoque->id;
                     }
                 }
                 
                 // Remove variações não enviadas
                 $produto->estoque()->whereNotIn('id', $variacoesIds)->delete();
             }
-
+            
             DB::commit();
+            
             return redirect()->route('produtos.index')
                 ->with('success', 'Produto atualizado com sucesso!');
                 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withInput()->with('error', 'Erro ao atualizar produto: ' . $e->getMessage());
+            return back()->with('error', 'Erro ao atualizar produto: ' . $e->getMessage());
         }
     }
 
@@ -146,11 +193,19 @@ class ProdutoController extends Controller
         DB::beginTransaction();
         
         try {
-            // Remove o estoque primeiro por causa da chave estrangeira
+            // Remove a imagem se existir
+            if ($produto->imagem) {
+                Storage::disk('public')->delete($produto->imagem);
+            }
+            
+            // Remove todas as variações de estoque
             $produto->estoque()->delete();
+            
+            // Remove o produto
             $produto->delete();
             
             DB::commit();
+            
             return redirect()->route('produtos.index')
                 ->with('success', 'Produto removido com sucesso!');
                 
