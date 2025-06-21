@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\CarrinhoController;
+use App\Http\Controllers\CartController;
 use Illuminate\Support\Facades\Route;
 
 // Rota de teste
@@ -23,8 +24,17 @@ Route::get('/produtos', [ProdutoController::class, 'index'])->name('produtos.ind
 Route::middleware(['auth', 'verified'])->group(function () {
     // Alternar status do produto
     Route::post('/produtos/{produto}/toggle-status', [ProdutoController::class, 'toggleStatus'])->name('produtos.toggle-status');
-    // Carrinho de compras
-    Route::post('/carrinho/adicionar/{produto}', [CarrinhoController::class, 'adicionar'])->name('carrinho.adicionar');
+    // Página inicial
+Route::get('/', function () {
+    return redirect()->route('produtos.index');
+})->name('home');
+
+// Carrinho de compras
+    Route::get('/carrinho', [CartController::class, 'index'])->name('carrinho.index');
+    Route::post('/carrinho/calcular-frete', [CartController::class, 'calcularFrete'])->name('carrinho.calcular-frete');
+Route::post('/carrinho/atualizar/{itemKey}', [CartController::class, 'atualizar'])->name('carrinho.atualizar');
+Route::delete('/carrinho/remover/{itemKey}', [CartController::class, 'remover'])->name('carrinho.remover');
+    Route::post('/carrinho/adicionar/{produto}', [CartController::class, 'adicionar'])->name('carrinho.adicionar');
     // Dashboard
     Route::get('/dashboard', function () {
         return view('dashboard');

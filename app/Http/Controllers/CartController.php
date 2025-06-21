@@ -27,7 +27,7 @@ class CartController extends Controller
             
             $cartItems[] = [
                 'produto' => $product,
-                'variacao' => $variacao,
+                'variacao' => $variation,
                 'quantidade' => $item['quantidade'],
                 'preco' => $price,
                 'total' => $itemTotal
