@@ -29,8 +29,14 @@
 
             <!-- Page Content -->
             <main>
-                {{ $slot }}
+                @yield('content')
             </main>
         </div>
+
+        <!-- Scripts -->
+        @stack('scripts')
+        
+        <!-- Alpine.js -->
+        <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.8.2/dist/alpine.min.js" defer></script>
     </body>
 </html>
