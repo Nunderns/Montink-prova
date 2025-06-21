@@ -40,6 +40,7 @@
                 </div>
             @endif
         </div>
+
         <!-- Detalhes -->
         <div class="flex-1 p-6 flex flex-col justify-between">
             <div>
@@ -62,6 +63,7 @@
                     <span>Última atualização: {{ $produto->updated_at->format('d/m/Y H:i') }}</span>
                 </div>
             </div>
+
             <!-- Ações -->
             <div class="flex flex-wrap gap-2 mt-4">
                 <form action="{{ route('produtos.destroy', $produto->id) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir permanentemente este produto?')">
@@ -123,145 +125,3 @@
     @endif
 </div>
 @endsection
-
-    <!-- Cabeçalho -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
-        <div>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{{ route('produtos.index') }}">Produtos</a></li>
-                    <li class="breadcrumb-item active" aria-current="page">Detalhes</li>
-                </ol>
-            </nav>
-            <h1 class="display-6 fw-bold text-primary mb-0">{{ $produto->nome }}</h1>
-            <p class="text-muted mb-0">ID: {{ $produto->id }}</p>
-        </div>
-        
-        <div class="d-flex gap-2">
-            <a href="{{ route('produtos.edit', $produto->id) }}" class="btn btn-primary rounded-pill px-4">
-                <i class="bi bi-pencil-fill me-2"></i>Editar
-            </a>
-            <a href="{{ route('produtos.index') }}" class="btn btn-outline-secondary rounded-pill px-4">
-                <i class="bi bi-arrow-left me-2"></i>Voltar
-            </a>
-        </div>
-    </div>
-
-    <!-- Card Principal do Produto -->
-    <div class="card border-0 shadow-sm mb-4 overflow-hidden">
-        <div class="row g-0">
-            <!-- Imagem do Produto -->
-            <div class="col-md-5 bg-light">
-                @if($produto->imagem)
-                    <img src="{{ asset('storage/' . $produto->imagem) }}" 
-                         class="img-fluid h-100 w-100 object-fit-cover" 
-                         alt="{{ $produto->nome }}"
-                         style="min-height: 300px;">
-                @else
-                    <div class="d-flex flex-column align-items-center justify-content-center h-100 py-5 text-muted">
-                        <i class="bi bi-image" style="font-size: 5rem;"></i>
-                        <p class="mt-3 mb-0">Sem imagem</p>
-                    </div>
-                @endif
-            </div>
-            
-            <!-- Detalhes do Produto -->
-            <div class="col-md-7">
-                <div class="card-body p-4 p-lg-5">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div>
-                            <span class="badge rounded-pill bg-{{ $produto->ativo ? 'success' : 'secondary' }} bg-opacity-10 text-{{ $produto->ativo ? 'success' : 'secondary' }} px-3 py-2 mb-2">
-                                <i class="bi bi-{{ $produto->ativo ? 'check-circle' : 'slash-circle' }} me-1"></i>
-                                {{ $produto->ativo ? 'Ativo' : 'Inativo' }}
-                            </span>
-                            <h2 class="h4 fw-bold mb-3">{{ $produto->nome }}</h2>
-                        </div>
-                        <h3 class="text-primary fw-bold mb-0">
-                            R$ {{ number_format($produto->preco, 2, ',', '.') }}
-                        </h3>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <h5 class="h6 text-uppercase text-muted mb-3">Descrição</h5>
-                        <div class="p-3 bg-light rounded-3">
-                            <p class="mb-0">{{ $produto->descricao ?? 'Nenhuma descrição fornecida.' }}</p>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <h5 class="h6 text-uppercase text-muted mb-3">Data de Criação</h5>
-                            <p class="mb-0">{{ $produto->created_at->format('d/m/Y H:i') }}</p>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <h5 class="h6 text-uppercase text-muted mb-3">Última Atualização</h5>
-                            <p class="mb-0">{{ $produto->updated_at->format('d/m/Y H:i') }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Seção de Ações -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mt-4 p-4 bg-light rounded-3">
-        <div>
-            <h5 class="h6 text-uppercase text-muted mb-2">Ações do Produto</h5>
-            <p class="small text-muted mb-0">Gerencie o status e as configurações deste produto</p>
-        </div>
-        
-        <div class="d-flex gap-2">
-            <form action="{{ route('produtos.destroy', $produto->id) }}" method="POST" 
-                  onsubmit="return confirm('Tem certeza que deseja excluir permanentemente este produto?')">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="btn btn-outline-danger rounded-pill px-4">
-                    <i class="bi bi-trash-fill me-2"></i>Excluir
-                </button>
-            </form>
-            
-            <form action="{{ route('produtos.toggle-status', $produto->id) }}" method="POST">
-                @csrf
-                <button type="submit" class="btn btn-{{ $produto->ativo ? 'warning' : 'success' }} rounded-pill px-4">
-                    <i class="bi bi-{{ $produto->ativo ? 'x-circle' : 'check-circle' }}-fill me-2"></i>
-                    {{ $produto->ativo ? 'Desativar' : 'Ativar' }}
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Seção de Variações (se aplicável) -->
-    @if($produto->estoque->count() > 0)
-    <div class="card border-0 shadow-sm mt-4">
-        <div class="card-header bg-white">
-            <h5 class="mb-0">Variações de Estoque</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Variação</th>
-                            <th class="text-end">Quantidade</th>
-                            <th class="text-end">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($produto->estoque as $estoque)
-                        <tr>
-                            <td>{{ $estoque->variacao ?? 'Padrão' }}</td>
-                            <td class="text-end">{{ $estoque->quantidade }}</td>
-                            <td class="text-end">
-                                <span class="badge bg-{{ $estoque->quantidade > 0 ? 'success' : 'secondary' }}">
-                                    {{ $estoque->quantidade > 0 ? 'Disponível' : 'Esgotado' }}
-                                </span>
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    @endif
-</div>
