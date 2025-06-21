@@ -16,10 +16,34 @@
             <p class="text-gray-400 text-xs mt-1">ID: {{ $produto->id }}</p>
         </div>
         <div class="flex gap-2">
-            <a href="{{ route('produtos.edit', $produto->id) }}" class="inline-flex items-center px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow transition">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6-6m2 2L7 17H5v-2l10-10z"/></svg>
-                Editar
-            </a>
+            @auth
+                @if(in_array(Auth::user()->cargo, ['admin', 'gerente']))
+                    <a href="{{ route('produtos.edit', $produto->id) }}" class="inline-flex items-center px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow transition">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6-6m2 2L7 17H5v-2l10-10z"/></svg>
+                        Editar
+                    </a>
+                @endif
+            @endauth
+            @guest
+                <form action="{{ route('carrinho.adicionar', $produto->id) }}" method="POST">
+                    @csrf
+                    <button type="submit" class="inline-flex items-center px-5 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow transition">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h18v18H3V3zm3 6h12v2H6V9zm0 4h12v2H6v-2z"/></svg>
+                        Comprar
+                    </button>
+                </form>
+            @endguest
+            @auth
+                @if(!in_array(Auth::user()->cargo, ['admin', 'gerente']))
+                    <form action="{{ route('carrinho.adicionar', $produto->id) }}" method="POST">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center px-5 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow transition">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h18v18H3V3zm3 6h12v2H6V9zm0 4h12v2H6v-2z"/></svg>
+                            Comprar
+                        </button>
+                    </form>
+                @endif
+            @endauth
             <a href="{{ route('produtos.index') }}" class="inline-flex items-center px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg shadow hover:bg-gray-100 transition">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                 Voltar
@@ -65,29 +89,33 @@
             </div>
 
             <!-- Ações -->
-            <div class="flex flex-wrap gap-2 mt-4">
-                <form action="{{ route('produtos.destroy', $produto->id) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir permanentemente este produto?')">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow transition">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                        Excluir
-                    </button>
-                </form>
-                <form action="{{ route('produtos.toggle-status', $produto->id) }}" method="POST">
-                    @csrf
-                    <button type="submit" class="inline-flex items-center px-4 py-2 {{ $produto->ativo ? 'bg-yellow-400 hover:bg-yellow-500 text-yellow-900' : 'bg-green-600 hover:bg-green-700 text-white' }} font-semibold rounded-lg shadow transition">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            @if($produto->ativo)
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            @else
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                            @endif
-                        </svg>
-                        {{ $produto->ativo ? 'Desativar' : 'Ativar' }}
-                    </button>
-                </form>
-            </div>
+            @auth
+                @if(in_array(Auth::user()->cargo, ['admin', 'gerente']))
+                <div class="flex flex-wrap gap-2 mt-4">
+                    <form action="{{ route('produtos.destroy', $produto->id) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir permanentemente este produto?')">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow transition">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            Excluir
+                        </button>
+                    </form>
+                    <form action="{{ route('produtos.toggle-status', $produto->id) }}" method="POST">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center px-4 py-2 {{ $produto->ativo ? 'bg-yellow-400 hover:bg-yellow-500 text-yellow-900' : 'bg-green-600 hover:bg-green-700 text-white' }} font-semibold rounded-lg shadow transition">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                @if($produto->ativo)
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                @else
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                @endif
+                            </svg>
+                            {{ $produto->ativo ? 'Desativar' : 'Ativar' }}
+                        </button>
+                    </form>
+                </div>
+                @endif
+            @endauth
         </div>
     </div>
 
