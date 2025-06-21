@@ -20,7 +20,65 @@
 
             <!-- Settings Dropdown / Auth Links -->
             @auth
-            <div class="hidden sm:flex sm:items-center sm:ms-6">
+            <div class="hidden sm:flex sm:items-center sm:ms-6 gap-3">
+                <!-- Carrinho -->
+                @if (!request()->routeIs('carrinho.index'))
+                <div class="dropdown">
+                    <button class="btn btn-light position-relative d-flex align-items-center" type="button" id="cartDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <img src="https://cdn-icons-png.flaticon.com/512/1170/1170678.png" alt="Carrinho" style="width: 26px; height: 26px;">
+                        @php $cart = session('cart', []); $cartCount = array_sum(array_column($cart, 'quantidade')); @endphp
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary">{{ $cartCount }}</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end p-0 shadow-lg" style="min-width: 350px; max-width: 400px;">
+                        <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold"><i class="bi bi-cart4 me-2"></i>Meu Carrinho</span>
+                            <button type="button" class="btn-close" data-bs-dismiss="dropdown" aria-label="Fechar"></button>
+                        </div>
+                        <div style="max-height: 340px; overflow-y: auto;">
+                            @if(count($cart))
+                                @php
+                                    $produtos = \App\Models\Produto::whereIn('id', array_column($cart, 'produto_id'))->get()->keyBy('id');
+                                    $variacoes = \App\Models\Estoque::whereIn('id', array_filter(array_column($cart, 'variacao_id')))->get()->keyBy('id');
+                                    $total = 0;
+                                @endphp
+                                @foreach($cart as $item)
+                                    @php
+                                        $produto = $produtos[$item['produto_id']] ?? null;
+                                        $variacao = $item['variacao_id'] ? ($variacoes[$item['variacao_id']] ?? null) : null;
+                                        $preco = $variacao && $variacao->preco ? $variacao->preco : ($produto ? $produto->preco : 0);
+                                        $itemTotal = $preco * $item['quantidade'];
+                                        $total += $itemTotal;
+                                    @endphp
+                                    <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom">
+                                        <img src="{{ $produto && $produto->imagem ? $produto->imagem : 'https://via.placeholder.com/50' }}" alt="{{ $produto ? $produto->nome : '' }}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px; border: 1px solid #eee;">
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold small mb-1">{{ $produto ? $produto->nome : 'Produto removido' }}</div>
+                                            @if($variacao)
+                                                <div class="text-muted small">{{ $variacao->variacao }}</div>
+                                            @endif
+                                            <div class="text-muted small">Qtd: {{ $item['quantidade'] }}</div>
+                                        </div>
+                                        <div class="fw-semibold text-end small" style="min-width: 70px;">R$ {{ number_format($itemTotal, 2, ',', '.') }}</div>
+                                    </div>
+                                @endforeach
+                                <div class="p-3 border-top">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-bold">Total</span>
+                                        <span class="fw-bold text-primary">R$ {{ number_format($total, 2, ',', '.') }}</span>
+                                    </div>
+                                    <a href="{{ route('carrinho.index') }}" class="btn btn-outline-primary w-100 mb-2">Ver carrinho</a>
+                                </div>
+                            @else
+                                <div class="p-4 text-center text-muted">
+                                    <i class="bi bi-cart-x display-6 mb-2"></i>
+                                    <div>Seu carrinho está vazio.</div>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                @endif
+                <!-- Fim Carrinho -->
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
                         <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
