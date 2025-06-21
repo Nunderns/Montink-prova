@@ -31,6 +31,27 @@
     @enderror
 </div>
 
+<div class="mb-3">
+    <label for="imagem" class="form-label">Imagem do Produto</label>
+    <input type="file" class="form-control @error('imagem') is-invalid @enderror" 
+           id="imagem" name="imagem" accept="image/*">
+    @error('imagem')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+    
+    @if(isset($produto) && $produto->imagem)
+        <div class="mt-2">
+            <img src="{{ asset('storage/' . $produto->imagem) }}" alt="Imagem atual" class="img-thumbnail" style="max-width: 200px;">
+            <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" name="remove_imagem" id="remove_imagem" value="1">
+                <label class="form-check-label" for="remove_imagem">
+                    Remover imagem
+                </label>
+            </div>
+        </div>
+    @endif
+</div>
+
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span>Variações e Estoque</span>

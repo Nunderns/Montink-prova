@@ -11,6 +11,13 @@ class Estoque extends Model
 {
     use HasFactory;
 
+    /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
+    protected $table = 'estoque';
+
     protected $fillable = [
         'produto_id',
         'variacao',

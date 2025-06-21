@@ -34,47 +34,8 @@
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">Estoque</h5>
-    </div>
-    <div class="card-body p-0">
-        @if($produto->estoque->isEmpty())
-            <div class="text-center p-4">
-                <p class="text-muted">Nenhuma variação em estoque.</p>
             </div>
-        @else
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Variação</th>
-                            <th>Quantidade</th>
-                            <th>Quantidade Mínima</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($produto->estoque as $estoque)
-                            <tr>
-                                <td>{{ $estoque->variacao ?? 'Padrão' }}</td>
-                                <td>{{ $estoque->quantidade }}</td>
-                                <td>{{ $estoque->quantidade_minima }}</td>
-                                <td>
-                                    @if($estoque->quantidade <= 0)
-                                        <span class="badge bg-danger">Esgotado</span>
-                                    @elseif($estoque->quantidade <= $estoque->quantidade_minima)
-                                        <span class="badge bg-warning">Estoque Baixo</span>
-                                    @else
-                                        <span class="badge bg-success">Disponível</span>
-                                    @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        @endif
+        </div>
     </div>
 </div>
 
