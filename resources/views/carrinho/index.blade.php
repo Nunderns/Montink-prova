@@ -109,10 +109,10 @@
                                             </td>
                                             <td class="text-center fw-semibold">R$ {{ number_format($item['total'], 2, ',', '.') }}</td>
                                             <td class="text-center">
-                                                <form action="{{ route('carrinho.remover', $itemKey) }}" method="POST" class="d-inline">
+                                                <form action="{{ route('carrinho.remover', $itemKey) }}" method="POST" class="d-inline remove-form">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger px-2" title="Remover" onclick="return confirm('Remover este item do carrinho?')">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger px-2" title="Remover">
                                                         <i class="bi bi-trash"></i>
                                                     </button>
                                                 </form>
@@ -183,9 +183,12 @@
                             <span class="fs-4 fw-bold text-primary" id="total-pedido">R$ {{ number_format($total, 2, ',', '.') }}</span>
                         </div>
                         
-                        <a href="#" class="btn btn-primary w-100 py-3 fw-bold disabled" title="Funcionalidade em desenvolvimento">
-                            <i class="bi bi-credit-card me-2"></i> Finalizar Compra
-                        </a>
+                        <form action="{{ route('carrinho.finalizar') }}" method="POST" class="w-100">
+                            @csrf
+                            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold">
+                                <i class="bi bi-credit-card me-2"></i> Finalizar Compra
+                            </button>
+                        </form>
                         
                         <div class="mt-3 text-center">
                             <small class="text-muted d-block">
@@ -237,8 +240,27 @@
 
 @push('scripts')
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    console.log('Script do carrinho carregado'); // Debug
+    
+    // Configuração global do AJAX para incluir o token CSRF
+    $.ajaxSetup({
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro AJAX global:', status, error);
+            if (xhr.status === 419) {
+                window.location.reload();
+            }
+        }
+    });
+    
     $(document).ready(function() {
+        console.log('Documento pronto - jQuery funcionando'); // Debug
+        console.log('CSRF Token:', $('meta[name="csrf-token"]').attr('content')); // Debug
+        
         // Máscara para CEP
         $('#cep').mask('00000-000');
         
@@ -253,6 +275,83 @@
             if (parseInt(input.val()) > 1) {
                 input.val(parseInt(input.val()) - 1);
             }
+        });
+        
+        // Debug: Verificar se os formulários de remoção estão sendo encontrados
+        console.log('Formulários de remoção encontrados:', $('.remove-form').length);
+        
+        // Remover item do carrinho - versão simplificada
+        $(document).on('submit', '.remove-form', function(e) {
+            console.log('Tentando remover item - evento submit capturado'); // Debug
+            e.preventDefault();
+            
+            const form = $(this);
+            const url = form.attr('action');
+            const itemKey = url.split('/').pop(); // Extrai a chave do item da URL
+            const row = form.closest('tr');
+            
+            console.log('URL de remoção:', url);
+            console.log('Chave do item extraída:', itemKey);
+            console.log('Formulário HTML:', form[0].outerHTML);
+            
+            // Mostra um alerta de confirmação simples
+            if (!confirm('Tem certeza que deseja remover este item do carrinho?')) {
+                console.log('Remoção cancelada pelo usuário');
+                return false;
+            }
+            
+            // Desabilita o botão para evitar múltiplos cliques
+            const submitButton = form.find('button[type="submit"]');
+            submitButton.prop('disabled', true);
+            
+            console.log('Enviando requisição AJAX para:', url);
+            console.log('Dados enviados:', {
+                _method: 'DELETE',
+                _token: $('meta[name="csrf-token"]').attr('content')
+            });
+            
+            // Faz a requisição AJAX
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: {
+                    _method: 'DELETE',
+                    _token: $('meta[name="csrf-token"]').attr('content')
+                },
+                dataType: 'json',
+                success: function(response) {
+                    console.log('Resposta do servidor:', response); // Debug
+                    
+                    if (response && response.success) {
+                        console.log('Item removido com sucesso, atualizando a página...'); // Debug
+                        // Recarrega a página para garantir que tudo esteja atualizado
+                        window.location.reload();
+                    } else {
+                        const errorMsg = response && response.message || 'Ocorreu um erro ao remover o item do carrinho.';
+                        console.error('Erro ao remover item:', errorMsg); // Debug
+                        alert(errorMsg);
+                        submitButton.prop('disabled', false);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Erro na requisição:', {
+                        status: status,
+                        error: error,
+                        responseText: xhr.responseText,
+                        statusText: xhr.statusText
+                    });
+                    
+                    if (xhr.status === 419) {
+                        // Token CSRF expirado - recarrega a página
+                        console.log('Token CSRF expirado, recarregando a página...');
+                        window.location.reload();
+                    } else {
+                        const errorMsg = 'Ocorreu um erro ao remover o item do carrinho. Por favor, tente novamente.';
+                        console.error(errorMsg, error);
+                        alert(errorMsg);
+                        submitButton.prop('disabled', false);
+                    }
+                }
         });
         
         // Calcular frete
