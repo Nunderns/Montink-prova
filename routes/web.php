@@ -35,6 +35,7 @@ Route::get('/', function () {
 Route::post('/carrinho/atualizar/{itemKey}', [CartController::class, 'atualizar'])->name('carrinho.atualizar');
 Route::delete('/carrinho/remover/{itemKey}', [CartController::class, 'remover'])->name('carrinho.remover');
     Route::post('/carrinho/adicionar/{produto}', [CartController::class, 'adicionar'])->name('carrinho.adicionar');
+    Route::post('/carrinho/finalizar', [CartController::class, 'finalizar'])->name('carrinho.finalizar');
     // Dashboard
     Route::get('/dashboard', function () {
         return view('dashboard');

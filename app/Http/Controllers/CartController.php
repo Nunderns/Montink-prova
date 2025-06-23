@@ -17,7 +17,7 @@ class CartController extends Controller
         
         // Calculate subtotal and get product details
         $cartItems = [];
-        foreach ($cart as $item) {
+        foreach ($cart as $itemKey => $item) {
             $product = Produto::find($item['produto_id']);
             $variation = $item['variacao_id'] ? Estoque::find($item['variacao_id']) : null;
             
@@ -25,7 +25,7 @@ class CartController extends Controller
             $itemTotal = $price * $item['quantidade'];
             $subtotal += $itemTotal;
             
-            $cartItems[] = [
+            $cartItems[$itemKey] = [
                 'produto' => $product,
                 'variacao' => $variation,
                 'quantidade' => $item['quantidade'],
@@ -118,11 +118,48 @@ class CartController extends Controller
     {
         $cart = Session::get('cart', []);
         
+        // Log para depuração
+        \Log::info('Tentando remover item do carrinho', [
+            'item_key' => $itemKey,
+            'carrinho_atual' => $cart,
+            'chaves_disponiveis' => array_keys($cart)
+        ]);
+        
         if (isset($cart[$itemKey])) {
             unset($cart[$itemKey]);
             Session::put('cart', $cart);
             
+            \Log::info('Item removido com sucesso', ['novo_carrinho' => $cart]);
+            
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Item removido do carrinho.',
+                    'cart_count' => count($cart),
+                    'debug' => [
+                        'item_key' => $itemKey,
+                        'cart_keys' => array_keys($cart)
+                    ]
+                ]);
+            }
+            
             return back()->with('success', 'Item removido do carrinho.');
+        }
+        
+        \Log::warning('Item não encontrado no carrinho', [
+            'item_key' => $itemKey,
+            'chaves_disponiveis' => array_keys($cart)
+        ]);
+        
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Item não encontrado no carrinho.',
+                'debug' => [
+                    'item_key' => $itemKey,
+                    'cart_keys' => array_keys($cart)
+                ]
+            ], 404);
         }
         
         return back()->with('error', 'Item não encontrado no carrinho.');
@@ -179,6 +216,31 @@ class CartController extends Controller
             'subtotal' => number_format($subtotal, 2, ',', '.'),
             'total' => number_format($subtotal + $shipping, 2, ',', '.')
         ]);
+    }
+    
+    public function finalizar(Request $request)
+    {
+        $cart = Session::get('cart', []);
+        
+        if (empty($cart)) {
+            return redirect()->route('carrinho.index')
+                ->with('error', 'Seu carrinho está vazio.');
+        }
+        
+        try {
+            // Aqui você implementaria a lógica de finalização de compra
+            // Por exemplo, criar um pedido, processar pagamento, etc.
+            
+            // Limpar o carrinho após a finalização
+            Session::forget('cart');
+            
+            return redirect()->route('produtos.index')
+                ->with('success', 'Compra finalizada com sucesso! Em breve você receberá um e-mail com os detalhes do seu pedido.');
+                
+        } catch (\Exception $e) {
+            return redirect()->route('carrinho.index')
+                ->with('error', 'Ocorreu um erro ao processar sua compra. Por favor, tente novamente.');
+        }
     }
     
     private function calculateShipping($subtotal)
