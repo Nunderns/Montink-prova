@@ -15,10 +15,29 @@
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <!-- Bootstrap Icons -->
         <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-        <!-- Tailwind CSS (opcional, se quiser usar utilitários Tailwind junto) -->
-        <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.0/dist/tailwind.min.css" rel="stylesheet">
+        <!-- Tailwind CSS via CDN -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+                darkMode: 'class',
+                theme: {
+                    extend: {}
+                }
+            }
+        </script>
+        <!-- Alpine.js -->
+        <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+        <script>
+            document.addEventListener('alpine:init', () => {
+                console.log('Alpine.js inicializado com sucesso!');
+            });
+        </script>
         <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @vite([
+            'resources/css/app.css',
+            'resources/css/profile.css',
+            'resources/js/app.js'
+        ])
     </head>
     <body class="font-sans antialiased">
         <!-- jQuery -->
@@ -45,5 +64,19 @@
         @stack('scripts')
         <!-- Bootstrap JS -->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        
+        <!-- Script de teste para verificar se o Alpine.js está funcionando -->
+        <script>
+            document.addEventListener('alpine:init', () => {
+                console.log('Alpine.js está funcionando corretamente!');
+            });
+            
+            // Verifica se o Alpine está disponível
+            if (window.Alpine) {
+                console.log('Alpine está disponível globalmente:', window.Alpine);
+            } else {
+                console.error('Alpine não está disponível. Verifique a importação do Alpine.js');
+            }
+        </script>
     </body>
 </html>

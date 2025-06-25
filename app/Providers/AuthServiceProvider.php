@@ -14,6 +14,8 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         // 'App\Models\Model' => 'App\Policies\ModelPolicy',
+        \App\Models\EnderecoEntrega::class => \App\Policies\EnderecoEntregaPolicy::class,
+        \App\Models\UserAddress::class => \App\Policies\UserAddressPolicy::class,
     ];
 
     /**

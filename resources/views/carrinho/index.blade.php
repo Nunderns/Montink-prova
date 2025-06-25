@@ -205,6 +205,57 @@
             </div>
         </div>
     @endif
+
+    {{-- DEBUG: Mostrar quantidade de pedidos --}}
+    @if(isset($pedidos))
+        <div class="alert alert-info"><b>Debug:</b> Total de pedidos encontrados: {{ count($pedidos) }}<br>
+        IDs: @foreach($pedidos as $p) {{ $p->id }} @endforeach
+        </div>
+    @endif
+    {{-- Histórico de Pedidos --}}
+    @if(isset($pedidos) && count($pedidos) > 0)
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-3">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="mb-0 fw-semibold"><i class="bi bi-clock-history me-2"></i>Histórico de Pedidos</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table align-middle table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Data</th>
+                                    <th>Status</th>
+                                    <th>Total</th>
+                                    <th>Detalhes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($pedidos as $pedido)
+                                    <tr>
+                                        <td>{{ $pedido->codigo }}</td>
+                                        <td>{{ $pedido->created_at->format('d/m/Y H:i') }}</td>
+                                        <td>
+                                            <span class="badge bg-light text-dark">{{ ucfirst($pedido->status) }}</span>
+                                        </td>
+                                        <td>R$ {{ number_format($pedido->valor_final, 2, ',', '.') }}</td>
+                                        <td>
+                                            <a href="#" class="btn btn-sm btn-outline-secondary" title="Ver detalhes" disabled>
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 </div>
 @endsection
 
