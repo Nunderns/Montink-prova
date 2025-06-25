@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 use App\Models\Cupom;
 use App\Models\PedidoItem;
+use App\Models\UserAddress;
 
 class Pedido extends Model
 {
@@ -16,6 +17,7 @@ class Pedido extends Model
         'codigo',
         'cliente_id',
         'cupom_id',
+        'user_address_id',
         'valor_total',
         'desconto',
         'valor_final',
@@ -42,5 +44,45 @@ class Pedido extends Model
     public function itens()
     {
         return $this->hasMany(PedidoItem::class);
+    }
+
+    /**
+     * Relacionamento com o endereço de entrega
+     */
+    public function enderecoEntrega()
+    {
+        return $this->belongsTo(UserAddress::class, 'user_address_id');
+    }
+    
+    /**
+     * Alias para compatibilidade com o código existente
+     */
+    public function endereco()
+    {
+        return $this->enderecoEntrega();
+    }
+
+    /**
+     * Escopo para filtrar pedidos por status
+     */
+    public function scopeComStatus($query, $status)
+    {
+        return $query->where('status', $status);
+    }
+
+    /**
+     * Verifica se o pedido pode ser cancelado
+     */
+    public function podeSerCancelado()
+    {
+        return in_array($this->status, ['pending', 'processing']);
+    }
+
+    /**
+     * Formata o valor para exibição
+     */
+    public function getValorFormatadoAttribute()
+    {
+        return 'R$ ' . number_format($this->valor_final, 2, ',', '.');
     }
 }

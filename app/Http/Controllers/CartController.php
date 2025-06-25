@@ -38,11 +38,21 @@ class CartController extends Controller
         $shipping = $this->calculateShipping($subtotal);
         $total = $subtotal + $shipping;
         
+        // Buscar histórico de pedidos do usuário autenticado
+        $pedidos = [];
+        if (auth()->check()) {
+            $pedidos = \App\Models\Pedido::with('itens')
+                ->where('cliente_id', auth()->id())
+                ->orderByDesc('created_at')
+                ->get();
+        }
+
         return view('carrinho.index', [
             'itens' => $cartItems,
             'subtotal' => $subtotal,
             'shipping' => $shipping,
-            'total' => $total
+            'total' => $total,
+            'pedidos' => $pedidos
         ]);
     }
     

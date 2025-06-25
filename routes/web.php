@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProdutoController;
 use App\Http\Controllers\CarrinhoController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\PedidoController;
 use Illuminate\Support\Facades\Route;
 
 // Rota de teste
@@ -41,13 +42,36 @@ Route::delete('/carrinho/remover/{itemKey}', [CartController::class, 'remover'])
         return view('dashboard');
     })->name('dashboard');
 
-    // Perfil do usuário
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // Rotas de perfil do usuário
+    Route::middleware(['auth', 'verified'])->group(function () {
+        // Visualização e atualização do perfil
+        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+        
+        // Atualização de senha
+        Route::patch('/profile/password', [ProfileController::class, 'updatePassword'])
+            ->name('profile.password.update');
+            
+        // Gerenciamento de endereços
+        Route::post('/profile/addresses', [ProfileController::class, 'storeAddress'])
+            ->name('profile.addresses.store');
+        Route::put('/profile/addresses/{endereco}', [ProfileController::class, 'updateAddress'])
+            ->name('profile.addresses.update');
+        Route::delete('/profile/addresses/{endereco}', [ProfileController::class, 'destroyAddress'])
+            ->name('profile.addresses.destroy');
+        Route::post('/profile/addresses/{endereco}/default', [ProfileController::class, 'setDefaultAddress'])
+            ->name('profile.addresses.set-default');
+    });
+
+    // Rotas para pedidos
+    Route::prefix('pedidos')->name('pedidos.')->group(function () {
+        Route::get('/{pedido}', [PedidoController::class, 'show'])->name('show');
+        Route::patch('/{pedido}/cancelar', [PedidoController::class, 'cancel'])->name('cancel');
+    });
 
     // Rotas de administração de produtos - Temporariamente sem autenticação para depuração
-Route::prefix('produtos')->group(function () {
+    Route::prefix('produtos')->group(function () {
     Route::get('/create', [ProdutoController::class, 'create'])->name('produtos.create');
     Route::post('/', [ProdutoController::class, 'store'])->name('produtos.store');
     Route::get('/{produto}/edit', [ProdutoController::class, 'edit'])->name('produtos.edit');
