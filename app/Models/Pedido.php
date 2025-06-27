@@ -21,6 +21,8 @@ class Pedido extends Model
         'valor_total',
         'desconto',
         'valor_final',
+        'frete',
+        'forma_pagamento',
         'status',
         'observacoes',
     ];
@@ -29,6 +31,7 @@ class Pedido extends Model
         'valor_total' => 'decimal:2',
         'desconto' => 'decimal:2',
         'valor_final' => 'decimal:2',
+        'frete' => 'decimal:2',
     ];
 
     public function cliente()

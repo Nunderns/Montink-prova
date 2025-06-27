@@ -302,10 +302,15 @@ class CartController extends Controller
                         $estoque->save();
                     }
                 } else {
-                    $produto = Produto::find($item['produto_id']);
-                    if ($produto) {
-                        $produto->quantidade_estoque -= $item['quantidade'];
-                        $produto->save();
+                    // Para produtos sem variação específica, atualiza o estoque
+                    // geral do produto na tabela de estoque (linha sem variação).
+                    $estoqueGeral = Estoque::where('produto_id', $item['produto_id'])
+                        ->whereNull('variacao')
+                        ->first();
+
+                    if ($estoqueGeral) {
+                        $estoqueGeral->quantidade -= $item['quantidade'];
+                        $estoqueGeral->save();
                     }
                 }
             }
