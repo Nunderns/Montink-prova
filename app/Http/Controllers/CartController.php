@@ -237,19 +237,112 @@ class CartController extends Controller
                 ->with('error', 'Seu carrinho está vazio.');
         }
         
+        // Verificar se o usuário está autenticado
+        if (!auth()->check()) {
+            return redirect()->route('login')
+                ->with('error', 'Você precisa estar logado para finalizar a compra.');
+        }
+        
+        // Calcular totais
+        $subtotal = 0;
+        $itensPedido = [];
+        
+        foreach ($cart as $item) {
+            $produto = Produto::find($item['produto_id']);
+            $variacao = $item['variacao_id'] ? Estoque::find($item['variacao_id']) : null;
+            
+            $preco = $variacao ? $variacao->preco : $produto->preco;
+            $totalItem = $preco * $item['quantidade'];
+            $subtotal += $totalItem;
+            
+            $itensPedido[] = [
+                'produto_id' => $produto->id,
+                'variacao_id' => $variacao ? $variacao->id : null,
+                'quantidade' => $item['quantidade'],
+                'preco_unitario' => $preco,
+                'total' => $totalItem
+            ];
+        }
+        
+        $frete = $this->calculateShipping($subtotal);
+        $total = $subtotal + $frete;
+        
+        // Iniciar transação para garantir a integridade dos dados
+        \DB::beginTransaction();
+        
         try {
-            // Aqui você implementaria a lógica de finalização de compra
-            // Por exemplo, criar um pedido, processar pagamento, etc.
+            // Criar o pedido
+            $pedido = new \App\Models\Pedido();
+            $pedido->codigo = 'PED' . time() . strtoupper(\Str::random(5));
+            $pedido->cliente_id = auth()->id();
+            $pedido->valor_total = $subtotal;
+            $pedido->desconto = 0; // Pode ser ajustado se houver cupom
+            $pedido->frete = $frete;
+            $pedido->valor_final = $total;
+            $pedido->status = 'pending';
+            $pedido->forma_pagamento = $request->input('forma_pagamento', 'pix'); // Pode ser ajustado conforme o frontend
+            $pedido->save();
+            
+            // Adicionar itens ao pedido
+            foreach ($itensPedido as $item) {
+                $pedidoItem = new \App\Models\PedidoItem();
+                $pedidoItem->pedido_id = $pedido->id;
+                $pedidoItem->produto_id = $item['produto_id'];
+                $pedidoItem->variacao_id = $item['variacao_id'];
+                $pedidoItem->quantidade = $item['quantidade'];
+                $pedidoItem->preco_unitario = $item['preco_unitario'];
+                $pedidoItem->total = $item['total'];
+                $pedidoItem->save();
+                
+                // Atualizar estoque
+                if ($item['variacao_id']) {
+                    $estoque = Estoque::find($item['variacao_id']);
+                    if ($estoque) {
+                        $estoque->quantidade -= $item['quantidade'];
+                        $estoque->save();
+                    }
+                } else {
+                    $produto = Produto::find($item['produto_id']);
+                    if ($produto) {
+                        $produto->quantidade_estoque -= $item['quantidade'];
+                        $produto->save();
+                    }
+                }
+            }
+            
+            // Se chegou até aqui, tudo deu certo. Confirmar a transação.
+            \DB::commit();
+            
+            // Log para depuração
+            \Log::info('Pedido criado com sucesso', [
+                'pedido_id' => $pedido->id,
+                'codigo' => $pedido->codigo,
+                'cliente_id' => $pedido->cliente_id,
+                'valor_total' => $pedido->valor_total
+            ]);
             
             // Limpar o carrinho após a finalização
             Session::forget('cart');
             
-            return redirect()->route('produtos.index')
-                ->with('success', 'Compra finalizada com sucesso! Em breve você receberá um e-mail com os detalhes do seu pedido.');
+            // Log do redirecionamento
+            $redirectUrl = route('pedidos.show', ['pedido' => $pedido->id]);
+            \Log::info('Redirecionando para', ['url' => $redirectUrl]);
+            
+            // Redirecionar para a página de confirmação
+            return redirect($redirectUrl)
+                ->with('success', 'Pedido realizado com sucesso! Número do pedido: ' . $pedido->codigo);
                 
         } catch (\Exception $e) {
+            // Em caso de erro, desfaz as alterações no banco de dados
+            \DB::rollBack();
+            
+            // Log do erro para depuração
+            \Log::error('Erro ao finalizar pedido: ' . $e->getMessage());
+            \Log::error($e->getTraceAsString());
+            
             return redirect()->route('carrinho.index')
-                ->with('error', 'Ocorreu um erro ao processar sua compra. Por favor, tente novamente.');
+                ->with('error', 'Ocorreu um erro ao processar seu pedido. Por favor, tente novamente. ' . 
+                      ($e instanceof \Illuminate\Database\QueryException ? 'Erro no banco de dados.' : ''));
         }
     }
     

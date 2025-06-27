@@ -28,14 +28,59 @@ class ProfileController extends Controller
     {
         $user = $request->user();
         $pedidos = collect();
+        $pedidosFechados = collect();
         $enderecos = collect();
         
+        // Log para depuração
+        \Log::info('ProfileController@edit - Iniciando', [
+            'user_id' => $user ? $user->id : null,
+            'is_authenticated' => $user ? 'sim' : 'não'
+        ]);
+        
         if ($user) {
-            // Obter os pedidos do usuário com paginação
-            $pedidos = \App\Models\Pedido::with(['itens.produto', 'enderecoEntrega'])
+            // Obter os pedidos abertos do usuário com paginação
+            $queryPedidos = \App\Models\Pedido::with(['itens.produto', 'enderecoEntrega'])
                 ->where('cliente_id', $user->id)
-                ->orderByDesc('created_at')
-                ->paginate(10, ['*'], 'pedidos_page');
+                ->whereIn('status', ['pending', 'processing', 'shipped'])
+                ->orderByDesc('created_at');
+                
+            // Log da consulta SQL gerada
+            \Log::info('Consulta SQL para pedidos abertos:', [
+                'sql' => $queryPedidos->toSql(),
+                'bindings' => $queryPedidos->getBindings()
+            ]);
+            
+            $pedidos = $queryPedidos->paginate(10, ['*'], 'pedidos_page');
+            
+            // Log dos pedidos encontrados
+            \Log::info('Pedidos abertos encontrados:', [
+                'total' => $pedidos->total(),
+                'ids' => $pedidos->pluck('id')->toArray()
+            ]);
+                
+            // Obter os pedidos fechados (entregues ou cancelados) para o resumo
+            $queryFechados = \App\Models\Pedido::with(['itens.produto', 'enderecoEntrega'])
+                ->where('cliente_id', $user->id)
+                ->whereIn('status', ['delivered', 'cancelled'])
+                ->orderByDesc('created_at');
+                
+            // Log da consulta SQL gerada para pedidos fechados
+            \Log::info('Consulta SQL para pedidos fechados:', [
+                'sql' => $queryFechados->toSql(),
+                'bindings' => $queryFechados->getBindings()
+            ]);
+            
+            $pedidosFechados = $queryFechados->take(5) // Limita a 5 pedidos no resumo
+                ->get()
+                ->map(function($pedido) {
+                    return $pedido->gerarResumo();
+                });
+                
+            // Log dos pedidos fechados encontrados
+            \Log::info('Pedidos fechados encontrados:', [
+                'total' => $pedidosFechados->count(),
+                'ids' => $pedidosFechados->pluck('id')->toArray()
+            ]);
                 
             // Obter endereços do usuário
             $enderecos = $user->addresses()
@@ -67,17 +112,23 @@ class ProfileController extends Controller
         }
         
         // Garantir que o usuário está disponível para a view
-        $data = [
-            'user' => $user,
+        $viewData = [
+            'user' => $request->user(),
             'pedidos' => $pedidos,
+            'pedidosFechados' => $pedidosFechados,
             'enderecos' => $enderecos,
             'header' => 'Minha Conta',
         ];
         
-        // Debug: Verificar dados que estão sendo passados para a view
-        \Log::info('Dados da view de perfil:', $data);
+        // Log para depuração
+        \Log::info('Dados da view de perfil:', [
+            'user_id' => $request->user() ? $request->user()->id : null,
+            'pedidos_count' => $pedidos->count(),
+            'pedidos_fechados_count' => $pedidosFechados->count(),
+            'enderecos_count' => $enderecos->count(),
+        ]);
         
-        return view('profile.edit', $data);
+        return view('profile.edit', $viewData);
     }
 
     /**

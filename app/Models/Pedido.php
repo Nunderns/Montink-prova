@@ -85,4 +85,42 @@ class Pedido extends Model
     {
         return 'R$ ' . number_format($this->valor_final, 2, ',', '.');
     }
+    
+    /**
+     * Gera um resumo do pedido para exibição
+     *
+     * @return array
+     */
+    public function gerarResumo()
+    {
+        // Mapeamento de status para suas traduções
+        $statusTraduzidos = [
+            'pending' => 'Pendente',
+            'processing' => 'Processando',
+            'shipped' => 'Enviado',
+            'delivered' => 'Entregue',
+            'cancelled' => 'Cancelado',
+        ];
+        
+        $status = $statusTraduzidos[$this->status] ?? ucfirst($this->status);
+        
+        return [
+            'codigo' => $this->codigo,
+            'data' => $this->created_at->format('d/m/Y'),
+            'status' => $status,
+            'status_original' => $this->status,
+            'total_itens' => $this->itens->sum('quantidade'),
+            'valor_total' => 'R$ ' . number_format($this->valor_total, 2, ',', '.'),
+            'desconto' => $this->desconto > 0 ? 'R$ ' . number_format($this->desconto, 2, ',', '.') : 'Nenhum',
+            'valor_final' => 'R$ ' . number_format($this->valor_final, 2, ',', '.'),
+            'forma_pagamento' => ucfirst($this->forma_pagamento),
+            'endereco_entrega' => $this->enderecoEntrega ? 
+                $this->enderecoEntrega->logradouro . ', ' . 
+                $this->enderecoEntrega->numero . 
+                ($this->enderecoEntrega->complemento ? ', ' . $this->enderecoEntrega->complemento : '') . 
+                ' - ' . $this->enderecoEntrega->bairro . 
+                ', ' . $this->enderecoEntrega->cidade . 
+                '/' . $this->enderecoEntrega->estado : 'Não informado'
+        ];
+    }
 }
