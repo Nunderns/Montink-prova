@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Produto;
 use App\Models\Estoque;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 
@@ -266,6 +267,11 @@ class CartController extends Controller
         
         $frete = $this->calculateShipping($subtotal);
         $total = $subtotal + $frete;
+
+        // Garantir que a tabela correta exista mesmo em bancos antigos
+        if (!Schema::hasTable('pedido_items') && Schema::hasTable('pedido_itens')) {
+            Schema::rename('pedido_itens', 'pedido_items');
+        }
         
         // Iniciar transação para garantir a integridade dos dados
         \DB::beginTransaction();
@@ -277,10 +283,14 @@ class CartController extends Controller
             $pedido->cliente_id = auth()->id();
             $pedido->valor_total = $subtotal;
             $pedido->desconto = 0; // Pode ser ajustado se houver cupom
-            $pedido->frete = $frete;
+            if (Schema::hasColumn('pedidos', 'frete')) {
+                $pedido->frete = $frete;
+            }
             $pedido->valor_final = $total;
             $pedido->status = 'pending';
-            $pedido->forma_pagamento = $request->input('forma_pagamento', 'pix'); // Pode ser ajustado conforme o frontend
+            if (Schema::hasColumn('pedidos', 'forma_pagamento')) {
+                $pedido->forma_pagamento = $request->input('forma_pagamento', 'pix');
+            }
             $pedido->save();
             
             // Adicionar itens ao pedido
@@ -288,10 +298,18 @@ class CartController extends Controller
                 $pedidoItem = new \App\Models\PedidoItem();
                 $pedidoItem->pedido_id = $pedido->id;
                 $pedidoItem->produto_id = $item['produto_id'];
-                $pedidoItem->variacao_id = $item['variacao_id'];
+                if (Schema::hasColumn('pedido_items', 'variacao_id')) {
+                    $pedidoItem->variacao_id = $item['variacao_id'];
+                } elseif (Schema::hasColumn('pedido_items', 'estoque_id')) {
+                    $pedidoItem->estoque_id = $item['variacao_id'];
+                }
                 $pedidoItem->quantidade = $item['quantidade'];
                 $pedidoItem->preco_unitario = $item['preco_unitario'];
-                $pedidoItem->total = $item['total'];
+                if (Schema::hasColumn('pedido_items', 'total')) {
+                    $pedidoItem->total = $item['total'];
+                } elseif (Schema::hasColumn('pedido_items', 'subtotal')) {
+                    $pedidoItem->subtotal = $item['total'];
+                }
                 $pedidoItem->save();
                 
                 // Atualizar estoque
