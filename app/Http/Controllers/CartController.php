@@ -268,18 +268,26 @@ class CartController extends Controller
                 $pedidoItem = new \App\Models\PedidoItem();
                 $pedidoItem->pedido_id = $pedido->id;
                 $pedidoItem->produto_id = $item['produto_id'];
+
                 if (Schema::hasColumn('pedido_items', 'variacao_id')) {
                     $pedidoItem->variacao_id = $item['variacao_id'];
                 } elseif (Schema::hasColumn('pedido_items', 'estoque_id')) {
                     $pedidoItem->estoque_id = $item['variacao_id'];
+                } elseif (Schema::hasColumn('pedido_items', 'variacao')) {
+                    // Estruturas antigas armazenavam a descrição em "variacao"
+                    $variation = Estoque::find($item['variacao_id']);
+                    $pedidoItem->variacao = $variation ? $variation->variacao : null;
                 }
+
                 $pedidoItem->quantidade = $item['quantidade'];
                 $pedidoItem->preco_unitario = $item['preco_unitario'];
+
                 if (Schema::hasColumn('pedido_items', 'total')) {
                     $pedidoItem->total = $item['total'];
                 } elseif (Schema::hasColumn('pedido_items', 'subtotal')) {
                     $pedidoItem->subtotal = $item['total'];
                 }
+
                 $pedidoItem->save();
                 
                 // Atualizar estoque
