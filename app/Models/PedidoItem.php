@@ -16,6 +16,7 @@ class PedidoItem extends Model
         'pedido_id',
         'produto_id',
         'variacao_id',
+        'variacao',
         'quantidade',
         'preco_unitario',
         'total',

@@ -4,37 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Models\Produto;
 use App\Models\Estoque;
+use App\Services\CartService;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Session;
 
 class CartController extends Controller
 {
+    private CartService $cart;
+
+    public function __construct(CartService $cart)
+    {
+        $this->cart = $cart;
+    }
+
     public function index()
     {
-        $cart = Session::get('cart', []);
-        $subtotal = 0;
-        $shipping = $this->calculateShipping($subtotal);
-        
-        // Calculate subtotal and get product details
-        $cartItems = [];
-        foreach ($cart as $itemKey => $item) {
-            $product = Produto::find($item['produto_id']);
-            $variation = $item['variacao_id'] ? Estoque::find($item['variacao_id']) : null;
-            
-            $price = $variation && $variation->preco ? $variation->preco : $product->preco;
-            $itemTotal = $price * $item['quantidade'];
-            $subtotal += $itemTotal;
-            
-            $cartItems[$itemKey] = [
-                'produto' => $product,
-                'variacao' => $variation,
-                'quantidade' => $item['quantidade'],
-                'preco' => $price,
-                'total' => $itemTotal
-            ];
-        }
-        
-        // Recalculate shipping with final subtotal
+        $cartItems = $this->cart->buildCartItems();
+        $subtotal = $this->cart->calculateSubtotal();
         $shipping = $this->calculateShipping($subtotal);
         $total = $subtotal + $shipping;
         
@@ -73,20 +59,7 @@ class CartController extends Controller
             return back()->with('error', 'Quantidade em estoque insuficiente.');
         }
         
-        $cart = Session::get('cart', []);
-        $itemKey = $produtoId . '_' . ($request->variacao_id ?: '0');
-        
-        if (isset($cart[$itemKey])) {
-            $cart[$itemKey]['quantidade'] += $request->quantidade;
-        } else {
-            $cart[$itemKey] = [
-                'produto_id' => $produtoId,
-                'variacao_id' => $request->variacao_id,
-                'quantidade' => $request->quantidade
-            ];
-        }
-        
-        Session::put('cart', $cart);
+        $this->cart->addItem($produtoId, $request->variacao_id, $request->quantidade);
         
         return redirect()->route('carrinho.index')
             ->with('success', 'Produto adicionado ao carrinho!');
@@ -98,8 +71,8 @@ class CartController extends Controller
             'quantidade' => 'required|integer|min:1'
         ]);
         
-        $cart = Session::get('cart', []);
-        
+        $cart = $this->cart->getCart();
+
         if (!isset($cart[$itemKey])) {
             return back()->with('error', 'Item não encontrado no carrinho.');
         }
@@ -117,8 +90,7 @@ class CartController extends Controller
             }
         }
         
-        $cart[$itemKey]['quantidade'] = $request->quantidade;
-        Session::put('cart', $cart);
+        $this->cart->updateQuantity($itemKey, $request->quantidade);
         
         return redirect()->route('carrinho.index')
             ->with('success', 'Carrinho atualizado!');
@@ -126,7 +98,7 @@ class CartController extends Controller
     
     public function remover($itemKey)
     {
-        $cart = Session::get('cart', []);
+        $cart = $this->cart->getCart();
         
         // Log para depuração
         \Log::info('Tentando remover item do carrinho', [
@@ -136,9 +108,9 @@ class CartController extends Controller
         ]);
         
         if (isset($cart[$itemKey])) {
-            unset($cart[$itemKey]);
-            Session::put('cart', $cart);
-            
+            $this->cart->removeItem($itemKey);
+            $cart = $this->cart->getCart();
+
             \Log::info('Item removido com sucesso', ['novo_carrinho' => $cart]);
             
             if (request()->ajax() || request()->wantsJson()) {
@@ -201,16 +173,7 @@ class CartController extends Controller
         }
         
         // Calcula o frete baseado no valor do carrinho
-        $subtotal = 0;
-        $cart = Session::get('cart', []);
-        
-        foreach ($cart as $item) {
-            $product = Produto::find($item['produto_id']);
-            $variation = $item['variacao_id'] ? Estoque::find($item['variacao_id']) : null;
-            
-            $price = $variation && $variation->preco ? $variation->preco : $product->preco;
-            $subtotal += $price * $item['quantidade'];
-        }
+        $subtotal = $this->cart->calculateSubtotal();
         
         $shipping = $this->calculateShipping($subtotal);
         
@@ -230,7 +193,7 @@ class CartController extends Controller
     
     public function finalizar(Request $request)
     {
-        $cart = Session::get('cart', []);
+        $cart = $this->cart->getCart();
         
         if (empty($cart)) {
             return redirect()->route('carrinho.index')
@@ -244,28 +207,30 @@ class CartController extends Controller
         }
         
         // Calcular totais
-        $subtotal = 0;
+        $subtotal = $this->cart->calculateSubtotal();
         $itensPedido = [];
-        
         foreach ($cart as $item) {
             $produto = Produto::find($item['produto_id']);
             $variacao = $item['variacao_id'] ? Estoque::find($item['variacao_id']) : null;
-            
-            $preco = $variacao ? $variacao->preco : $produto->preco;
+            $preco = $this->cart->getItemPrice($produto->id, $variacao ? $variacao->id : null);
             $totalItem = $preco * $item['quantidade'];
-            $subtotal += $totalItem;
-            
+
             $itensPedido[] = [
                 'produto_id' => $produto->id,
                 'variacao_id' => $variacao ? $variacao->id : null,
                 'quantidade' => $item['quantidade'],
                 'preco_unitario' => $preco,
-                'total' => $totalItem
+                'total' => $totalItem,
             ];
         }
         
         $frete = $this->calculateShipping($subtotal);
         $total = $subtotal + $frete;
+
+        // Garantir que a tabela correta exista mesmo em bancos antigos
+        if (!Schema::hasTable('pedido_items') && Schema::hasTable('pedido_itens')) {
+            Schema::rename('pedido_itens', 'pedido_items');
+        }
         
         // Iniciar transação para garantir a integridade dos dados
         \DB::beginTransaction();
@@ -277,10 +242,28 @@ class CartController extends Controller
             $pedido->cliente_id = auth()->id();
             $pedido->valor_total = $subtotal;
             $pedido->desconto = 0; // Pode ser ajustado se houver cupom
-            $pedido->frete = $frete;
+            if (Schema::hasColumn('pedidos', 'frete')) {
+                $pedido->frete = $frete;
+            }
             $pedido->valor_final = $total;
-            $pedido->status = 'pending';
-            $pedido->forma_pagamento = $request->input('forma_pagamento', 'pix'); // Pode ser ajustado conforme o frontend
+
+            // Determinar o status inicial respeitando esquemas mais antigos
+            $status = 'pending';
+            try {
+                $column = \DB::selectOne(
+                    "SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pedidos' AND COLUMN_NAME = 'status'"
+                );
+                if ($column && isset($column->COLUMN_TYPE) && str_contains($column->COLUMN_TYPE, 'pendente')) {
+                    $status = 'pendente';
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Não foi possível detectar tipo da coluna status', ['error' => $e->getMessage()]);
+                // Se a consulta falhar, usa o valor padrão
+            }
+            $pedido->status = $status;
+            if (Schema::hasColumn('pedidos', 'forma_pagamento')) {
+                $pedido->forma_pagamento = $request->input('forma_pagamento', 'pix');
+            }
             $pedido->save();
             
             // Adicionar itens ao pedido
@@ -288,10 +271,26 @@ class CartController extends Controller
                 $pedidoItem = new \App\Models\PedidoItem();
                 $pedidoItem->pedido_id = $pedido->id;
                 $pedidoItem->produto_id = $item['produto_id'];
-                $pedidoItem->variacao_id = $item['variacao_id'];
+
+                if (Schema::hasColumn('pedido_items', 'variacao_id')) {
+                    $pedidoItem->variacao_id = $item['variacao_id'];
+                } elseif (Schema::hasColumn('pedido_items', 'estoque_id')) {
+                    $pedidoItem->estoque_id = $item['variacao_id'];
+                } elseif (Schema::hasColumn('pedido_items', 'variacao')) {
+                    // Estruturas antigas armazenavam a descrição em "variacao"
+                    $variation = Estoque::find($item['variacao_id']);
+                    $pedidoItem->variacao = $variation ? $variation->variacao : null;
+                }
+
                 $pedidoItem->quantidade = $item['quantidade'];
                 $pedidoItem->preco_unitario = $item['preco_unitario'];
-                $pedidoItem->total = $item['total'];
+
+                if (Schema::hasColumn('pedido_items', 'total')) {
+                    $pedidoItem->total = $item['total'];
+                } elseif (Schema::hasColumn('pedido_items', 'subtotal')) {
+                    $pedidoItem->subtotal = $item['total'];
+                }
+
                 $pedidoItem->save();
                 
                 // Atualizar estoque
@@ -302,10 +301,15 @@ class CartController extends Controller
                         $estoque->save();
                     }
                 } else {
-                    $produto = Produto::find($item['produto_id']);
-                    if ($produto) {
-                        $produto->quantidade_estoque -= $item['quantidade'];
-                        $produto->save();
+                    // Para produtos sem variação específica, atualiza o estoque
+                    // geral do produto na tabela de estoque (linha sem variação).
+                    $estoqueGeral = Estoque::where('produto_id', $item['produto_id'])
+                        ->whereNull('variacao')
+                        ->first();
+
+                    if ($estoqueGeral) {
+                        $estoqueGeral->quantidade -= $item['quantidade'];
+                        $estoqueGeral->save();
                     }
                 }
             }
@@ -322,7 +326,7 @@ class CartController extends Controller
             ]);
             
             // Limpar o carrinho após a finalização
-            Session::forget('cart');
+            $this->cart->clear();
             
             // Log do redirecionamento
             $redirectUrl = route('pedidos.show', ['pedido' => $pedido->id]);
@@ -339,10 +343,12 @@ class CartController extends Controller
             // Log do erro para depuração
             \Log::error('Erro ao finalizar pedido: ' . $e->getMessage());
             \Log::error($e->getTraceAsString());
-            
+
             return redirect()->route('carrinho.index')
-                ->with('error', 'Ocorreu um erro ao processar seu pedido. Por favor, tente novamente. ' . 
-                      ($e instanceof \Illuminate\Database\QueryException ? 'Erro no banco de dados.' : ''));
+                ->with('error', 'Ocorreu um erro ao processar seu pedido. Por favor, tente novamente. '
+                      . ($e instanceof \Illuminate\Database\QueryException
+                          ? 'Erro no banco de dados: ' . $e->getMessage()
+                          : $e->getMessage()));
         }
     }
     

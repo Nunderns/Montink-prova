@@ -21,6 +21,8 @@ class Pedido extends Model
         'valor_total',
         'desconto',
         'valor_final',
+        'frete',
+        'forma_pagamento',
         'status',
         'observacoes',
     ];
@@ -29,6 +31,7 @@ class Pedido extends Model
         'valor_total' => 'decimal:2',
         'desconto' => 'decimal:2',
         'valor_final' => 'decimal:2',
+        'frete' => 'decimal:2',
     ];
 
     public function cliente()
@@ -75,7 +78,10 @@ class Pedido extends Model
      */
     public function podeSerCancelado()
     {
-        return in_array($this->status, ['pending', 'processing']);
+        return in_array($this->status, [
+            'pending', 'processing',
+            'pendente', 'em_processamento', 'pago', 'enviado'
+        ]);
     }
 
     /**
@@ -100,6 +106,12 @@ class Pedido extends Model
             'shipped' => 'Enviado',
             'delivered' => 'Entregue',
             'cancelled' => 'Cancelado',
+            'pendente' => 'Pendente',
+            'pago' => 'Pago',
+            'em_processamento' => 'Processando',
+            'enviado' => 'Enviado',
+            'entregue' => 'Entregue',
+            'cancelado' => 'Cancelado',
         ];
         
         $status = $statusTraduzidos[$this->status] ?? ucfirst($this->status);
