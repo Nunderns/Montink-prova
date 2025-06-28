@@ -225,12 +225,6 @@
         </div>
     @endif
 
-    {{-- DEBUG: Mostrar quantidade de pedidos --}}
-    @if(isset($pedidos))
-        <div class="alert alert-info"><b>Debug:</b> Total de pedidos encontrados: {{ count($pedidos) }}<br>
-        IDs: @foreach($pedidos as $p) {{ $p->id }} @endforeach
-        </div>
-    @endif
     {{-- Histórico de Pedidos --}}
     @if(isset($pedidos) && count($pedidos) > 0)
     <div class="row mt-5">
