@@ -76,6 +76,14 @@
     </div>
     
     <div class="p-6">
+        {{-- DEBUG: Mostrar quantidade de pedidos --}}
+        @if(isset($pedidos))
+            <div class="mb-4 p-4 text-sm text-blue-800 bg-blue-50 rounded-lg">
+                <b>Debug:</b> Total de pedidos encontrados: {{ $pedidos->count() }}<br>
+                IDs: @foreach($pedidos as $p) {{ $p->id }} @endforeach
+            </div>
+        @endif
+
         @if(isset($pedidos) && $pedidos->count() > 0)
             <div class="space-y-4">
                 @foreach($pedidos as $pedido)
