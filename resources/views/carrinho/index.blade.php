@@ -155,16 +155,25 @@
                             
                             <div class="d-flex justify-content-between mb-3 border-bottom pb-3">
                                 <span class="text-muted">Frete</span>
-                                <span class="fw-semibold" id="frete-value">-</span>
+                                <span class="fw-semibold" id="frete-value">
+                                    @if(isset($shipping) && $shipping !== null)
+                                        R$ {{ number_format($shipping, 2, ',', '.') }}
+                                    @else
+                                        -
+                                    @endif
+                                </span>
                             </div>
                             
-                            <div class="input-group mb-3">
-                                <input type="text" class="form-control" id="cep" 
-                                       placeholder="Digite seu CEP" data-mask="00000-000">
-                                <button class="btn btn-outline-primary" type="button" id="btn-calcular-frete">
-                                    <i class="bi bi-truck"></i>
-                                </button>
-                            </div>
+                            <form id="form-calcular-frete">
+                                @csrf
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control" id="cep" 
+                                           placeholder="Digite seu CEP" data-mask="00000-000" required>
+                                    <button class="btn btn-outline-primary" type="submit" id="btn-calcular-frete">
+                                        <i class="bi bi-truck"></i>
+                                    </button>
+                                </div>
+                            </form>
                             
                             <div id="frete-detalhes" class="alert alert-info p-2 d-none">
                                 <small class="d-block">
@@ -416,33 +425,183 @@
         });
         
         // Calcular frete
-        $('#btn-calcular-frete').click(function() {
+        $('#form-calcular-frete').on('submit', function(e) {
+            e.preventDefault();
+            
             const cep = $('#cep').val().replace(/\D/g, '');
             
             if (cep.length !== 8) {
-                alert('Por favor, informe um CEP válido com 8 dígitos.');
-                return;
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'CEP inválido',
+                    text: 'Por favor, informe um CEP válido com 8 dígitos.'
+                });
+                return false;
             }
             
-            const btn = $(this);
-            btn.prop('disabled', true).html('<i class="bi bi-arrow-repeat spin me-1"></i> Calculando...');
+            const btn = $('#btn-calcular-frete');
+            const btnOriginalHtml = btn.html();
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Calculando...');
             
-            // Simulação de cálculo de frete (substitua por sua chamada AJAX real)
-            setTimeout(function() {
-                // Esta é uma simulação - na prática você faria uma chamada AJAX para seu backend
-                $('#frete-detalhes').removeClass('d-none');
-                $('#endereco-entrega').text('Rua Exemplo, 123 - Centro, São Paulo/SP');
-                $('#prazo-entrega').text('3-5 dias úteis');
-                $('#frete-value').text('R$ 15,90');
-                $('#total-pedido').text('R$ ' + ({{ $total }} + 15.90).toFixed(2).replace('.', ','));
-                
-                btn.prop('disabled', false).html('<i class="bi bi-truck"></i>');
-                
-                // Mostrar toast de sucesso
-                const toast = new bootstrap.Toast(document.getElementById('freteToast'));
-                toast.show();
-            }, 1500);
+            // Esconde mensagens de erro anteriores
+            $('.invalid-feedback').remove();
+            $('#cep').removeClass('is-invalid');
+            
+            // Faz a chamada AJAX para o backend para calcular o frete
+            $.ajax({
+                url: '{{ route("carrinho.calcular-frete") }}',
+                type: 'POST',
+                data: {
+                    cep: cep,
+                    _token: '{{ csrf_token() }}'
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        // Formata o endereço para exibição
+                        const enderecoParts = [
+                            response.endereco.logradouro,
+                            response.endereco.bairro,
+                            response.endereco.localidade,
+                            response.endereco.uf
+                        ].filter(Boolean);
+                        
+                        const enderecoFormatado = enderecoParts.join(', ');
+                        
+                        // Atualiza a interface
+                        $('#frete-detalhes').removeClass('d-none');
+                        $('#endereco-entrega').text(enderecoFormatado);
+                        
+                        // Define o prazo de entrega com base no CEP (simulação)
+                        const prazo = cep.startsWith('01') ? '1-2 dias úteis' : '3-5 dias úteis';
+                        $('#prazo-entrega').text(prazo);
+                        
+                        // Formata o valor do frete
+                        const freteFormatado = parseFloat(response.frete).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        });
+                        
+                        // Atualiza o valor do frete no resumo
+                        $('#frete-value').text(`R$ ${freteFormatado}`);
+                        
+                        // Atualiza o total
+                        const subtotal = parseFloat('{{ $subtotal }}');
+                        const frete = parseFloat(response.frete);
+                        const total = subtotal + frete;
+                        
+                        $('#total-pedido').text('R$ ' + total.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        }));
+                        
+                        // Mostra uma mensagem de sucesso
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Frete calculado!',
+                            html: `
+                                <div class="text-start">
+                                    <p class="mb-2">Frete calculado com sucesso para:</p>
+                                    <p class="mb-1 fw-bold">${enderecoFormatado}</p>
+                                    <p class="mb-0">Valor: <span class="fw-bold">R$ ${freteFormatado}</span></p>
+                                    <p class="mb-0">Prazo: ${prazo}</p>
+                                </div>
+                            `,
+                            showConfirmButton: true,
+                            confirmButtonText: 'Entendi',
+                            timer: 5000
+                        });
+                        
+                        // Salva o CEP no localStorage
+                        localStorage.setItem('ultimoCep', cep);
+                    } else {
+                        // Mostra mensagem de erro
+                        $('#cep').addClass('is-invalid');
+                        $('<div class="invalid-feedback d-block">' + (response.message || 'Não foi possível calcular o frete para o CEP informado.') + '</div>').insertAfter('#cep');
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Não foi possível calcular o frete',
+                            text: response.message || 'Verifique o CEP informado e tente novamente.',
+                            confirmButtonText: 'Entendi'
+                        });
+                    }
+                },
+                error: function(xhr) {
+                    console.error('Erro ao calcular frete:', xhr);
+                    
+                    let errorMessage = 'Ocorreu um erro ao tentar calcular o frete. Por favor, tente novamente.';
+                    
+                    if (xhr.status === 422) {
+                        const errors = xhr.responseJSON.errors;
+                        if (errors && errors.cep) {
+                            errorMessage = errors.cep[0];
+                        }
+                    }
+                    
+                    $('#cep').addClass('is-invalid');
+                    $(`<div class="invalid-feedback d-block">${errorMessage}</div>`).insertAfter('#cep');
+                    
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erro',
+                        text: errorMessage,
+                        confirmButtonText: 'Entendi'
+                    });
+                },
+                complete: function() {
+                    btn.prop('disabled', false).html(btnOriginalHtml);
+                }
+            });
+            
+            return false;
         });
+        
+        // Ao carregar a página, verifica se já tem um CEP salvo e preenche o campo
+        $(window).on('load', function() {
+            const cepSalvo = localStorage.getItem('ultimoCep');
+            if (cepSalvo) {
+                $('#cep').val(cepSalvo);
+            }
+        });
+        
+        // Formata o CEP enquanto o usuário digita
+        $('#cep').on('input', function(e) {
+            let value = $(this).val().replace(/\D/g, '');
+            if (value.length > 5) {
+                value = value.replace(/^(\d{5})(\d{1,3})?/, '$1-$2');
+            }
+            $(this).val(value);
+            
+            // Remove mensagens de erro ao começar a digitar
+            if ($(this).hasClass('is-invalid')) {
+                $(this).removeClass('is-invalid');
+                $(this).nextAll('.invalid-feedback').remove();
+            }
+        });
+        
+        // Inicializa o valor do frete ao carregar a página
+        @if(isset($shipping) && $shipping !== null)
+        (function() {
+            const frete = parseFloat({{ $shipping }});
+            const freteFormatado = frete.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+            
+            // Atualiza o valor do frete no resumo
+            $('#frete-value').text(`R$ ${freteFormatado}`);
+            
+            // Atualiza o total
+            const subtotal = parseFloat({{ $subtotal ?? 0 }});
+            const total = subtotal + frete;
+            
+            $('#total-pedido').text('R$ ' + total.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }));
+        })();
+        @endif
     });
 </script>
 @endpush

@@ -30,13 +30,34 @@ Route::get('/', function () {
     return redirect()->route('produtos.index');
 })->name('home');
 
-// Carrinho de compras
-    Route::get('/carrinho', [CartController::class, 'index'])->name('carrinho.index');
-    Route::post('/carrinho/calcular-frete', [CartController::class, 'calcularFrete'])->name('carrinho.calcular-frete');
-Route::post('/carrinho/atualizar/{itemKey}', [CartController::class, 'atualizar'])->name('carrinho.atualizar');
-Route::delete('/carrinho/remover/{itemKey}', [CartController::class, 'remover'])->name('carrinho.remover');
-    Route::post('/carrinho/adicionar/{produto}', [CartController::class, 'adicionar'])->name('carrinho.adicionar');
-    Route::post('/carrinho/finalizar', [CartController::class, 'finalizar'])->name('carrinho.finalizar');
+    // Rotas do carrinho de compras
+    Route::prefix('carrinho')->name('carrinho.')->group(function () {
+        // Visualizar carrinho
+        Route::get('/', [CartController::class, 'index'])->name('index');
+        
+        // Adicionar item ao carrinho
+        Route::post('/adicionar/{produto}', [CartController::class, 'adicionar'])
+            ->name('adicionar')
+            ->where('produto', '[0-9]+');
+            
+        // Atualizar quantidade de um item
+        Route::post('/atualizar/{itemKey}', [CartController::class, 'atualizar'])
+            ->name('atualizar')
+            ->where('itemKey', '.+');
+            
+        // Remover item do carrinho
+        Route::delete('/remover/{itemKey}', [CartController::class, 'remover'])
+            ->name('remover')
+            ->where('itemKey', '.+');
+            
+        // Calcular frete
+        Route::post('/calcular-frete', [CartController::class, 'calcularFrete'])
+            ->name('calcular-frete');
+            
+        // Finalizar compra
+        Route::post('/finalizar', [CartController::class, 'finalizar'])
+            ->name('finalizar');
+    });
     // Dashboard
     Route::get('/dashboard', function () {
         return view('dashboard');
