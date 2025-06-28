@@ -23,10 +23,22 @@ class CartService
         Session::forget('cart');
     }
 
-    public function addItem(int $produtoId, ?int $variacaoId, int $quantidade): void
+    public function addItem(int $produtoId, ?int $variacaoId, int $quantidade): array
     {
         $cart = $this->getCart();
         $key = $this->makeKey($produtoId, $variacaoId);
+        
+        // Verificar se há estoque suficiente
+        $estoqueDisponivel = $this->verificarEstoque($produtoId, $variacaoId);
+        
+        if ($estoqueDisponivel < $quantidade) {
+            return [
+                'success' => false,
+                'message' => 'Quantidade em estoque insuficiente.',
+                'estoque_disponivel' => $estoqueDisponivel
+            ];
+        }
+        
         if (isset($cart[$key])) {
             $cart[$key]['quantidade'] += $quantidade;
         } else {
@@ -36,18 +48,59 @@ class CartService
                 'quantidade' => $quantidade,
             ];
         }
+        
         $this->saveCart($cart);
+        
+        return [
+            'success' => true,
+            'message' => 'Produto adicionado ao carrinho!'
+        ];
+    }
+    
+    /**
+     * Verifica a quantidade disponível em estoque
+     */
+    public function verificarEstoque(int $produtoId, ?int $variacaoId): int
+    {
+        if ($variacaoId) {
+            $estoque = \App\Models\Estoque::find($variacaoId);
+            return $estoque ? $estoque->quantidade : 0;
+        } else {
+            // Para produtos sem variação, soma todo o estoque disponível
+            return \App\Models\Estoque::where('produto_id', $produtoId)
+                ->sum('quantidade');
+        }
     }
 
-    public function updateQuantity(string $key, int $quantidade): bool
+    public function updateQuantity(string $key, int $quantidade): array
     {
         $cart = $this->getCart();
         if (!isset($cart[$key])) {
-            return false;
+            return [
+                'success' => false,
+                'message' => 'Item não encontrado no carrinho.'
+            ];
         }
+        
+        // Verificar se há estoque suficiente
+        $item = $cart[$key];
+        $estoqueDisponivel = $this->verificarEstoque($item['produto_id'], $item['variacao_id']);
+        
+        if ($quantidade > $estoqueDisponivel) {
+            return [
+                'success' => false,
+                'message' => 'Quantidade em estoque insuficiente.',
+                'estoque_disponivel' => $estoqueDisponivel
+            ];
+        }
+        
         $cart[$key]['quantidade'] = $quantidade;
         $this->saveCart($cart);
-        return true;
+        
+        return [
+            'success' => true,
+            'message' => 'Quantidade atualizada com sucesso!'
+        ];
     }
 
     public function removeItem(string $key): bool
@@ -71,6 +124,20 @@ class CartService
             $subtotal += $price * $item['quantidade'];
         }
         return $subtotal;
+    }
+    
+    /**
+     * Calcula o valor do frete com base no subtotal
+     */
+    public function calcularFrete(float $subtotal): float
+    {
+        if ($subtotal > 200) {
+            return 0; // Frete grátis
+        } elseif ($subtotal >= 52 && $subtotal <= 166.59) {
+            return 15.00;
+        } else {
+            return 20.00;
+        }
     }
 
     public function buildCartItems(): array

@@ -25,8 +25,27 @@
                 @endif
             @endauth
             @guest
-                <form action="{{ route('carrinho.adicionar', $produto->id) }}" method="POST">
+                <form action="{{ route('carrinho.adicionar', $produto->id) }}" method="POST" class="flex items-center gap-4">
                     @csrf
+                    <div class="flex items-center">
+                        <span class="mr-2 font-medium text-gray-700">Quantidade:</span>
+                        <div class="flex items-center border rounded-lg overflow-hidden">
+                            <button type="button" class="px-3 py-1 bg-gray-100 hover:bg-gray-200" onclick="decrementQuantity(this)">-</button>
+                            <input type="number" name="quantidade" value="1" min="1" class="w-12 text-center border-0 focus:ring-0" id="quantidade">
+                            <button type="button" class="px-3 py-1 bg-gray-100 hover:bg-gray-200" onclick="incrementQuantity(this)">+</button>
+                        </div>
+                    </div>
+                    @if($produto->estoque->count() > 0)
+                    <div class="ml-4">
+                        <select name="variacao_id" class="rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                            @foreach($produto->estoque as $estoque)
+                                <option value="{{ $estoque->id }}" data-quantidade="{{ $estoque->quantidade }}">
+                                    {{ $estoque->variacao }} ({{ $estoque->quantidade }} disponíveis)
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
                     <button type="submit" class="inline-flex items-center px-5 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow transition">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h18v18H3V3zm3 6h12v2H6V9zm0 4h12v2H6v-2z"/></svg>
                         Comprar
@@ -35,8 +54,27 @@
             @endguest
             @auth
                 @if(!in_array(Auth::user()->cargo, ['admin', 'gerente']))
-                    <form action="{{ route('carrinho.adicionar', $produto->id) }}" method="POST">
+                    <form action="{{ route('carrinho.adicionar', $produto->id) }}" method="POST" class="flex items-center gap-4">
                         @csrf
+                        <div class="flex items-center">
+                            <span class="mr-2 font-medium text-gray-700">Quantidade:</span>
+                            <div class="flex items-center border rounded-lg overflow-hidden">
+                                <button type="button" class="px-3 py-1 bg-gray-100 hover:bg-gray-200" onclick="decrementQuantity(this)">-</button>
+                                <input type="number" name="quantidade" value="1" min="1" class="w-12 text-center border-0 focus:ring-0" id="quantidade">
+                                <button type="button" class="px-3 py-1 bg-gray-100 hover:bg-gray-200" onclick="incrementQuantity(this)">+</button>
+                            </div>
+                        </div>
+                        @if($produto->estoque->count() > 0)
+                        <div class="ml-4">
+                            <select name="variacao_id" class="rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                @foreach($produto->estoque as $estoque)
+                                    <option value="{{ $estoque->id }}" data-quantidade="{{ $estoque->quantidade }}">
+                                        {{ $estoque->variacao }} ({{ $estoque->quantidade }} disponíveis)
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
                         <button type="submit" class="inline-flex items-center px-5 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow transition">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h18v18H3V3zm3 6h12v2H6V9zm0 4h12v2H6v-2z"/></svg>
                             Comprar

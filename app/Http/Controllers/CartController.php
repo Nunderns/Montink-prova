@@ -50,19 +50,20 @@ class CartController extends Controller
         ]);
         
         $produto = Produto::findOrFail($produtoId);
-        $variacao = $request->variacao_id ? Estoque::findOrFail($request->variacao_id) : null;
         
-        // Verifica se há estoque suficiente
-        if ($variacao && $variacao->quantidade < $request->quantidade) {
-            return back()->with('error', 'Quantidade em estoque insuficiente para esta variação.');
-        } elseif (!$variacao && $produto->estoque->sum('quantidade') < $request->quantidade) {
-            return back()->with('error', 'Quantidade em estoque insuficiente.');
+        // Usa o método addItem do CartService que já faz a verificação de estoque
+        $result = $this->cart->addItem(
+            $produtoId, 
+            $request->variacao_id, 
+            $request->quantidade
+        );
+        
+        if (!$result['success']) {
+            return back()->with('error', $result['message']);
         }
         
-        $this->cart->addItem($produtoId, $request->variacao_id, $request->quantidade);
-        
         return redirect()->route('carrinho.index')
-            ->with('success', 'Produto adicionado ao carrinho!');
+            ->with('success', $result['message']);
     }
     
     public function atualizar(Request $request, $itemKey)
@@ -71,29 +72,15 @@ class CartController extends Controller
             'quantidade' => 'required|integer|min:1'
         ]);
         
-        $cart = $this->cart->getCart();
-
-        if (!isset($cart[$itemKey])) {
-            return back()->with('error', 'Item não encontrado no carrinho.');
+        // Usa o método updateQuantity do CartService que já faz a verificação de estoque
+        $result = $this->cart->updateQuantity($itemKey, $request->quantidade);
+        
+        if (!$result['success']) {
+            return back()->with('error', $result['message']);
         }
-        
-        // Verifica estoque
-        $item = $cart[$itemKey];
-        $variacao = $item['variacao_id'] ? Estoque::find($item['variacao_id']) : null;
-        
-        if ($variacao && $variacao->quantidade < $request->quantidade) {
-            return back()->with('error', 'Quantidade em estoque insuficiente para esta variação.');
-        } elseif (!$variacao) {
-            $produto = Produto::find($item['produto_id']);
-            if ($produto->estoque->sum('quantidade') < $request->quantidade) {
-                return back()->with('error', 'Quantidade em estoque insuficiente.');
-            }
-        }
-        
-        $this->cart->updateQuantity($itemKey, $request->quantidade);
         
         return redirect()->route('carrinho.index')
-            ->with('success', 'Carrinho atualizado!');
+            ->with('success', $result['message']);
     }
     
     public function remover($itemKey)
@@ -147,48 +134,158 @@ class CartController extends Controller
         return back()->with('error', 'Item não encontrado no carrinho.');
     }
     
+    /**
+     * Calcula o frete para um determinado CEP
+     * 
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function calcularFrete(Request $request)
     {
-        $request->validate([
-            'cep' => 'required|string|size:9|regex:/^\d{5}-\d{3}$/'
-        ]);
-        
-        // Simula consulta ao ViaCEP
-        $cep = str_replace('-', '', $request->cep);
-        $url = "https://viacep.com.br/ws/{$cep}/json/";
-        
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($ch);
-        curl_close($ch);
-        
-        $endereco = json_decode($response, true);
-        
-        if (isset($endereco['erro'])) {
+        try {
+            // Validação do CEP
+            $request->validate([
+                'cep' => ['required', 'string', 'regex:/^\d{5}-?\d{3}$/']
+            ]);
+            
+            // Formata o CEP (remove traço se existir)
+            $cep = str_replace('-', '', $request->cep);
+            
+            // Verifica se o carrinho está vazio
+            $cart = $this->cart->getCart();
+            if (empty($cart)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Seu carrinho está vazio.'
+                ], 400);
+            }
+            
+            // Tenta buscar o endereço usando o ViaCEP
+            $endereco = $this->consultarViaCEP($cep);
+            
+            if (!$endereco) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Não foi possível encontrar o endereço para o CEP informado.'
+                ], 404);
+            }
+            
+            // Calcula o frete baseado no valor do carrinho
+            $subtotal = $this->cart->calculateSubtotal();
+            $shipping = $this->cart->calcularFrete($subtotal);
+            
+            // Prepara os dados de retorno
+            $response = [
+                'success' => true,
+                'endereco' => [
+                    'logradouro' => $endereco['logradouro'] ?? 'Não informado',
+                    'bairro' => $endereco['bairro'] ?? 'Não informado',
+                    'localidade' => $endereco['localidade'] ?? 'Não informado',
+                    'uf' => $endereco['uf'] ?? 'Não informado'
+                ],
+                'frete' => number_format($shipping, 2, '.', ''), // Formato para cálculo
+                'frete_formatado' => 'R$ ' . number_format($shipping, 2, ',', '.'), // Formato para exibição
+                'subtotal' => number_format($subtotal, 2, '.', ''),
+                'subtotal_formatado' => 'R$ ' . number_format($subtotal, 2, ',', '.'),
+                'total' => number_format($subtotal + $shipping, 2, '.', ''),
+                'total_formatado' => 'R$ ' . number_format($subtotal + $shipping, 2, ',', '.')
+            ];
+            
+            // Log da operação
+            \Log::info('Frete calculado com sucesso', [
+                'cep' => $cep,
+                'endereco' => $endereco,
+                'subtotal' => $subtotal,
+                'frete' => $shipping,
+                'total' => $subtotal + $shipping
+            ]);
+            
+            return response()->json($response);
+            
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Erro de validação
             return response()->json([
                 'success' => false,
-                'message' => 'CEP não encontrado.'
+                'message' => 'CEP inválido. Por favor, verifique o formato do CEP.',
+                'errors' => $e->errors()
+            ], 422);
+            
+        } catch (\Exception $e) {
+            // Erro genérico
+            \Log::error('Erro ao calcular frete: ' . $e->getMessage(), [
+                'cep' => $request->cep ?? null,
+                'exception' => $e
             ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Ocorreu um erro ao calcular o frete. Por favor, tente novamente mais tarde.'
+            ], 500);
         }
-        
-        // Calcula o frete baseado no valor do carrinho
-        $subtotal = $this->cart->calculateSubtotal();
-        
-        $shipping = $this->calculateShipping($subtotal);
-        
-        return response()->json([
-            'success' => true,
-            'endereco' => [
-                'logradouro' => $endereco['logradouro'] ?? '',
-                'bairro' => $endereco['bairro'] ?? '',
-                'cidade' => $endereco['localidade'] ?? '',
-                'uf' => $endereco['uf'] ?? ''
-            ],
-            'frete' => number_format($shipping, 2, ',', '.'),
-            'subtotal' => number_format($subtotal, 2, ',', '.'),
-            'total' => number_format($subtotal + $shipping, 2, ',', '.')
-        ]);
+    }
+    
+    /**
+     * Consulta o endereço no ViaCEP
+     * 
+     * @param  string  $cep
+     * @return array|null
+     */
+    protected function consultarViaCEP($cep)
+    {
+        try {
+            $url = "https://viacep.com.br/ws/{$cep}/json/";
+            
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Accept: application/json'
+                ]
+            ]);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            
+            if (curl_errno($ch)) {
+                throw new \Exception('Erro na requisição: ' . curl_error($ch));
+            }
+            
+            curl_close($ch);
+            
+            if ($httpCode !== 200) {
+                throw new \Exception("Erro ao consultar CEP. Código HTTP: {$httpCode}");
+            }
+            
+            $endereco = json_decode($response, true);
+            
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \Exception('Erro ao decodificar resposta do ViaCEP: ' . json_last_error_msg());
+            }
+            
+            if (isset($endereco['erro'])) {
+                return null;
+            }
+            
+            return $endereco;
+            
+        } catch (\Exception $e) {
+            \Log::error('Erro na consulta ao ViaCEP: ' . $e->getMessage(), [
+                'cep' => $cep,
+                'exception' => $e
+            ]);
+            
+            // Em caso de falha na API, retorna um endereço genérico
+            return [
+                'logradouro' => 'Não foi possível obter o endereço',
+                'bairro' => 'Verifique o CEP informado',
+                'localidade' => 'Cidade não identificada',
+                'uf' => 'UF'
+            ];
+        }
     }
     
     public function finalizar(Request $request)
@@ -224,7 +321,8 @@ class CartController extends Controller
             ];
         }
         
-        $frete = $this->calculateShipping($subtotal);
+        // Usa o método do CartService para calcular o frete
+        $frete = $this->cart->calcularFrete($subtotal);
         $total = $subtotal + $frete;
 
         // Garantir que a tabela correta exista mesmo em bancos antigos
@@ -352,14 +450,9 @@ class CartController extends Controller
         }
     }
     
+    // Método mantido para compatibilidade, mas a lógica foi movida para o CartService
     private function calculateShipping($subtotal)
     {
-        if ($subtotal > 200) {
-            return 0; // Frete grátis
-        } elseif ($subtotal >= 52 && $subtotal <= 166.59) {
-            return 15.00;
-        } else {
-            return 20.00;
-        }
+        return $this->cart->calcularFrete($subtotal);
     }
 }
