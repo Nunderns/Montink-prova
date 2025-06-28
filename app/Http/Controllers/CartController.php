@@ -4,38 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Models\Produto;
 use App\Models\Estoque;
+use App\Services\CartService;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Session;
 
 class CartController extends Controller
 {
+    private CartService $cart;
+
+    public function __construct(CartService $cart)
+    {
+        $this->cart = $cart;
+    }
+
     public function index()
     {
-        $cart = Session::get('cart', []);
-        $subtotal = 0;
-        $shipping = $this->calculateShipping($subtotal);
-        
-        // Calculate subtotal and get product details
-        $cartItems = [];
-        foreach ($cart as $itemKey => $item) {
-            $product = Produto::find($item['produto_id']);
-            $variation = $item['variacao_id'] ? Estoque::find($item['variacao_id']) : null;
-            
-            $price = $variation && $variation->preco ? $variation->preco : $product->preco;
-            $itemTotal = $price * $item['quantidade'];
-            $subtotal += $itemTotal;
-            
-            $cartItems[$itemKey] = [
-                'produto' => $product,
-                'variacao' => $variation,
-                'quantidade' => $item['quantidade'],
-                'preco' => $price,
-                'total' => $itemTotal
-            ];
-        }
-        
-        // Recalculate shipping with final subtotal
+        $cartItems = $this->cart->buildCartItems();
+        $subtotal = $this->cart->calculateSubtotal();
         $shipping = $this->calculateShipping($subtotal);
         $total = $subtotal + $shipping;
         
@@ -74,20 +59,7 @@ class CartController extends Controller
             return back()->with('error', 'Quantidade em estoque insuficiente.');
         }
         
-        $cart = Session::get('cart', []);
-        $itemKey = $produtoId . '_' . ($request->variacao_id ?: '0');
-        
-        if (isset($cart[$itemKey])) {
-            $cart[$itemKey]['quantidade'] += $request->quantidade;
-        } else {
-            $cart[$itemKey] = [
-                'produto_id' => $produtoId,
-                'variacao_id' => $request->variacao_id,
-                'quantidade' => $request->quantidade
-            ];
-        }
-        
-        Session::put('cart', $cart);
+        $this->cart->addItem($produtoId, $request->variacao_id, $request->quantidade);
         
         return redirect()->route('carrinho.index')
             ->with('success', 'Produto adicionado ao carrinho!');
@@ -99,8 +71,8 @@ class CartController extends Controller
             'quantidade' => 'required|integer|min:1'
         ]);
         
-        $cart = Session::get('cart', []);
-        
+        $cart = $this->cart->getCart();
+
         if (!isset($cart[$itemKey])) {
             return back()->with('error', 'Item não encontrado no carrinho.');
         }
@@ -118,8 +90,7 @@ class CartController extends Controller
             }
         }
         
-        $cart[$itemKey]['quantidade'] = $request->quantidade;
-        Session::put('cart', $cart);
+        $this->cart->updateQuantity($itemKey, $request->quantidade);
         
         return redirect()->route('carrinho.index')
             ->with('success', 'Carrinho atualizado!');
@@ -127,7 +98,7 @@ class CartController extends Controller
     
     public function remover($itemKey)
     {
-        $cart = Session::get('cart', []);
+        $cart = $this->cart->getCart();
         
         // Log para depuração
         \Log::info('Tentando remover item do carrinho', [
@@ -137,9 +108,9 @@ class CartController extends Controller
         ]);
         
         if (isset($cart[$itemKey])) {
-            unset($cart[$itemKey]);
-            Session::put('cart', $cart);
-            
+            $this->cart->removeItem($itemKey);
+            $cart = $this->cart->getCart();
+
             \Log::info('Item removido com sucesso', ['novo_carrinho' => $cart]);
             
             if (request()->ajax() || request()->wantsJson()) {
@@ -202,16 +173,7 @@ class CartController extends Controller
         }
         
         // Calcula o frete baseado no valor do carrinho
-        $subtotal = 0;
-        $cart = Session::get('cart', []);
-        
-        foreach ($cart as $item) {
-            $product = Produto::find($item['produto_id']);
-            $variation = $item['variacao_id'] ? Estoque::find($item['variacao_id']) : null;
-            
-            $price = $variation && $variation->preco ? $variation->preco : $product->preco;
-            $subtotal += $price * $item['quantidade'];
-        }
+        $subtotal = $this->cart->calculateSubtotal();
         
         $shipping = $this->calculateShipping($subtotal);
         
@@ -231,7 +193,7 @@ class CartController extends Controller
     
     public function finalizar(Request $request)
     {
-        $cart = Session::get('cart', []);
+        $cart = $this->cart->getCart();
         
         if (empty($cart)) {
             return redirect()->route('carrinho.index')
@@ -245,23 +207,20 @@ class CartController extends Controller
         }
         
         // Calcular totais
-        $subtotal = 0;
+        $subtotal = $this->cart->calculateSubtotal();
         $itensPedido = [];
-        
         foreach ($cart as $item) {
             $produto = Produto::find($item['produto_id']);
             $variacao = $item['variacao_id'] ? Estoque::find($item['variacao_id']) : null;
-            
             $preco = $variacao ? $variacao->preco : $produto->preco;
             $totalItem = $preco * $item['quantidade'];
-            $subtotal += $totalItem;
-            
+
             $itensPedido[] = [
                 'produto_id' => $produto->id,
                 'variacao_id' => $variacao ? $variacao->id : null,
                 'quantidade' => $item['quantidade'],
                 'preco_unitario' => $preco,
-                'total' => $totalItem
+                'total' => $totalItem,
             ];
         }
         
@@ -356,7 +315,7 @@ class CartController extends Controller
             ]);
             
             // Limpar o carrinho após a finalização
-            Session::forget('cart');
+            $this->cart->clear();
             
             // Log do redirecionamento
             $redirectUrl = route('pedidos.show', ['pedido' => $pedido->id]);
