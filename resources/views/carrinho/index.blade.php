@@ -185,6 +185,16 @@
                         
                         <form action="{{ route('carrinho.finalizar') }}" method="POST" class="w-100">
                             @csrf
+                            <div class="mb-3">
+                                <label for="forma_pagamento" class="form-label fw-semibold mb-2">Forma de Pagamento</label>
+                                <select name="forma_pagamento" id="forma_pagamento" class="form-select" required>
+                                    <option value="">Selecione uma opção</option>
+                                    <option value="pix">PIX</option>
+                                    <option value="cartao_credito">Cartão de Crédito</option>
+                                    <option value="cartao_debito">Cartão de Débito</option>
+                                    <option value="boleto">Boleto Bancário</option>
+                                </select>
+                            </div>
                             <button type="submit" class="btn btn-primary w-100 py-3 fw-bold">
                                 <i class="bi bi-credit-card me-2"></i> Finalizar Compra
                             </button>

@@ -1,7 +1,76 @@
-<div id="pedidos" class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 mt-6">
+{{-- Seção de Resumo de Pedidos Fechados --}}
+@if(isset($pedidosFechados) && $pedidosFechados->isNotEmpty())
+<div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 mb-6">
     <div class="px-6 py-4 border-b border-gray-100">
         <h2 class="text-lg font-semibold text-gray-900">
-            <i class="bi bi-box-seam me-2 text-indigo-600"></i> Meus Pedidos
+            <i class="bi bi-archive me-2 text-indigo-600"></i> Resumo de Pedidos Finalizados
+        </h2>
+        <p class="mt-1 text-sm text-gray-500">Seus pedidos concluídos ou cancelados</p>
+    </div>
+    
+    <div class="p-6">
+        <div class="space-y-4">
+            @foreach($pedidosFechados as $pedido)
+                <div class="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200">
+                    <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div class="flex items-center">
+                            <span class="font-medium text-gray-900">Pedido #{{ $pedido['codigo'] }}</span>
+                            <span class="mx-2 text-gray-300 hidden sm:inline">•</span>
+                            <span class="text-sm text-gray-500">{{ $pedido['data'] }}</span>
+                        </div>
+                        <div>
+                            @php
+                                $statusClasses = [
+                                    'delivered' => 'bg-green-100 text-green-800',
+                                    'entregue' => 'bg-green-100 text-green-800',
+                                    'cancelled' => 'bg-red-100 text-red-800',
+                                    'cancelado' => 'bg-red-100 text-red-800',
+                                    'pending' => 'bg-yellow-100 text-yellow-800',
+                                    'pendente' => 'bg-yellow-100 text-yellow-800',
+                                    'pago' => 'bg-blue-100 text-blue-800',
+                                    'processing' => 'bg-blue-100 text-blue-800',
+                                    'em_processamento' => 'bg-blue-100 text-blue-800',
+                                    'shipped' => 'bg-indigo-100 text-indigo-800',
+                                    'enviado' => 'bg-indigo-100 text-indigo-800',
+                                ][$pedido['status_original']] ?? 'bg-gray-100 text-gray-800';
+                            @endphp
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $statusClasses }}">
+                                {{ $pedido['status'] }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <p class="text-gray-500">Itens: <span class="text-gray-900">{{ $pedido['total_itens'] }}</span></p>
+                                <p class="text-gray-500">Valor Total: <span class="font-medium text-gray-900">{{ $pedido['valor_total'] }}</span></p>
+                                @if($pedido['desconto'] !== 'Nenhum')
+                                    <p class="text-gray-500">Desconto: <span class="text-green-600">-{{ $pedido['desconto'] }}</span></p>
+                                @endif
+                                <p class="text-gray-500">Total Pago: <span class="font-semibold text-indigo-600">{{ $pedido['valor_final'] }}</span></p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500">Forma de Pagamento: <span class="text-gray-900">{{ $pedido['forma_pagamento'] }}</span></p>
+                                <div class="mt-2">
+                                    <p class="text-gray-500 mb-1">Endereço de Entrega:</p>
+                                    <p class="text-gray-900 text-sm">{{ $pedido['endereco_entrega'] }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- Seção de Pedidos em Andamento --}}
+<div id="pedidos" class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100">
+    <div class="px-6 py-4 border-b border-gray-100">
+        <h2 class="text-lg font-semibold text-gray-900">
+            <i class="bi bi-box-seam me-2 text-indigo-600"></i> Meus Pedidos em Andamento
         </h2>
         <p class="mt-1 text-sm text-gray-500">Acompanhe o status dos seus pedidos recentes</p>
     </div>
@@ -21,10 +90,16 @@
                                 @php
                                     $statusClasses = [
                                         'pending' => 'bg-yellow-100 text-yellow-800',
+                                        'pendente' => 'bg-yellow-100 text-yellow-800',
                                         'processing' => 'bg-blue-100 text-blue-800',
+                                        'em_processamento' => 'bg-blue-100 text-blue-800',
+                                        'pago' => 'bg-blue-100 text-blue-800',
                                         'shipped' => 'bg-indigo-100 text-indigo-800',
+                                        'enviado' => 'bg-indigo-100 text-indigo-800',
                                         'delivered' => 'bg-green-100 text-green-800',
+                                        'entregue' => 'bg-green-100 text-green-800',
                                         'cancelled' => 'bg-red-100 text-red-800',
+                                        'cancelado' => 'bg-red-100 text-red-800',
                                     ][$pedido->status] ?? 'bg-gray-100 text-gray-800';
                                 @endphp
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $statusClasses }}">
