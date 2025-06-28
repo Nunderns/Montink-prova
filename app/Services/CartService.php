@@ -67,7 +67,7 @@ class CartService
         foreach ($this->getCart() as $item) {
             $product = Produto::find($item['produto_id']);
             $variation = $item['variacao_id'] ? Estoque::find($item['variacao_id']) : null;
-            $price = $variation && $variation->preco ? $variation->preco : $product->preco;
+            $price = $this->resolvePrice($variation, $product);
             $subtotal += $price * $item['quantidade'];
         }
         return $subtotal;
@@ -79,7 +79,7 @@ class CartService
         foreach ($this->getCart() as $key => $item) {
             $product = Produto::find($item['produto_id']);
             $variation = $item['variacao_id'] ? Estoque::find($item['variacao_id']) : null;
-            $price = $variation && $variation->preco ? $variation->preco : $product->preco;
+            $price = $this->resolvePrice($variation, $product);
             $items[$key] = [
                 'produto' => $product,
                 'variacao' => $variation,
@@ -89,6 +89,22 @@ class CartService
             ];
         }
         return $items;
+    }
+
+    public function getItemPrice(int $produtoId, ?int $variacaoId): float
+    {
+        $product = Produto::find($produtoId);
+        $variation = $variacaoId ? Estoque::find($variacaoId) : null;
+        return $this->resolvePrice($variation, $product);
+    }
+
+    protected function resolvePrice(?Estoque $variation, Produto $product): float
+    {
+        if ($variation && isset($variation->preco) && $variation->preco !== null) {
+            return $variation->preco;
+        }
+
+        return $product->preco;
     }
 
     protected function makeKey(int $produtoId, ?int $variacaoId): string

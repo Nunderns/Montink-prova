@@ -212,7 +212,7 @@ class CartController extends Controller
         foreach ($cart as $item) {
             $produto = Produto::find($item['produto_id']);
             $variacao = $item['variacao_id'] ? Estoque::find($item['variacao_id']) : null;
-            $preco = $variacao ? $variacao->preco : $produto->preco;
+            $preco = $this->cart->getItemPrice($produto->id, $variacao ? $variacao->id : null);
             $totalItem = $preco * $item['quantidade'];
 
             $itensPedido[] = [
