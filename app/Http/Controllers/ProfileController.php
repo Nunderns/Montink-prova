@@ -39,9 +39,14 @@ class ProfileController extends Controller
         
         if ($user) {
             // Obter os pedidos abertos do usuário com paginação
+            $statusAbertos = [
+                'pending', 'processing', 'shipped',
+                'pendente', 'pago', 'em_processamento', 'enviado'
+            ];
+
             $queryPedidos = \App\Models\Pedido::with(['itens.produto', 'enderecoEntrega'])
                 ->where('cliente_id', $user->id)
-                ->whereIn('status', ['pending', 'processing', 'shipped'])
+                ->whereIn('status', $statusAbertos)
                 ->orderByDesc('created_at');
                 
             // Log da consulta SQL gerada
@@ -59,9 +64,14 @@ class ProfileController extends Controller
             ]);
                 
             // Obter os pedidos fechados (entregues ou cancelados) para o resumo
+            $statusFechados = [
+                'delivered', 'cancelled',
+                'entregue', 'cancelado'
+            ];
+
             $queryFechados = \App\Models\Pedido::with(['itens.produto', 'enderecoEntrega'])
                 ->where('cliente_id', $user->id)
-                ->whereIn('status', ['delivered', 'cancelled'])
+                ->whereIn('status', $statusFechados)
                 ->orderByDesc('created_at');
                 
             // Log da consulta SQL gerada para pedidos fechados
@@ -103,6 +113,12 @@ class ProfileController extends Controller
                     'shipped' => 'Enviado',
                     'delivered' => 'Entregue',
                     'cancelled' => 'Cancelado',
+                    'pendente' => 'Pendente',
+                    'pago' => 'Pago',
+                    'em_processamento' => 'Processando',
+                    'enviado' => 'Enviado',
+                    'entregue' => 'Entregue',
+                    'cancelado' => 'Cancelado',
                 ];
                 
                 $pedido->status_traduzido = $statusTraduzidos[$pedido->status] ?? ucfirst($pedido->status);

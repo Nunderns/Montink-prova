@@ -287,7 +287,18 @@ class CartController extends Controller
                 $pedido->frete = $frete;
             }
             $pedido->valor_final = $total;
-            $pedido->status = 'pending';
+
+            // Determinar o status inicial respeitando esquemas mais antigos
+            $status = 'pending';
+            try {
+                $info = \DB::selectOne("SHOW COLUMNS FROM pedidos WHERE Field = 'status'");
+                if ($info && isset($info->Type) && str_contains($info->Type, 'pendente')) {
+                    $status = 'pendente';
+                }
+            } catch (\Exception $e) {
+                // Se a consulta falhar, usa o valor padrão
+            }
+            $pedido->status = $status;
             if (Schema::hasColumn('pedidos', 'forma_pagamento')) {
                 $pedido->forma_pagamento = $request->input('forma_pagamento', 'pix');
             }
