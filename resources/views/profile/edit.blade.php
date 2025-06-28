@@ -117,131 +117,64 @@
                             <p class="text-sm text-gray-500 mt-1">Acompanhe o histórico dos seus pedidos recentes</p>
                         </div>
                         <div class="p-6">
-                            {{-- DEBUG: Mostrar quantidade de pedidos --}}
-                            @if(isset($pedidos))
-                                <div class="mb-4 p-4 text-sm text-blue-800 bg-blue-50 rounded-lg">
-                                    <b>Debug:</b> Total de pedidos encontrados: {{ $pedidos->count() }}<br>
-                                    IDs: @foreach($pedidos as $p) {{ $p->id }} @endforeach
-                                </div>
-                            @endif
-
-                            @if(isset($pedidos) && $pedidos->count() > 0)
-                                <div class="space-y-4">
-                                    @foreach($pedidos as $pedido)
-                                        <div class="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200">
-                                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                                                <div class="flex items-center">
-                                                    <span class="font-medium text-gray-900">Pedido #{{ $pedido->codigo }}</span>
-                                                    <span class="mx-2 text-gray-300">•</span>
-                                                    <span class="text-sm text-gray-500">{{ $pedido->data_formatada }}</span>
-                                                </div>
-                                                <div class="flex items-center">
-                                                    @php
-                                                        $statusClasses = [
-                                                            'pending' => 'bg-yellow-100 text-yellow-800',
-                                                            'pendente' => 'bg-yellow-100 text-yellow-800',
-                                                            'processing' => 'bg-blue-100 text-blue-800',
-                                                            'em_processamento' => 'bg-blue-100 text-blue-800',
-                                                            'pago' => 'bg-blue-100 text-blue-800',
-                                                            'shipped' => 'bg-indigo-100 text-indigo-800',
-                                                            'enviado' => 'bg-indigo-100 text-indigo-800',
-                                                            'delivered' => 'bg-green-100 text-green-800',
-                                                            'entregue' => 'bg-green-100 text-green-800',
-                                                            'cancelled' => 'bg-red-100 text-red-800',
-                                                            'cancelado' => 'bg-red-100 text-red-800',
-                                                        ][$pedido->status] ?? 'bg-gray-100 text-gray-800';
-                                                    @endphp
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $statusClasses }}">
-                                                        {{ $pedido->status_traduzido }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="p-4">
-                                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                    <div>
-                                                        <h4 class="text-sm font-medium text-gray-500 mb-1">Itens</h4>
-                                                        <p class="text-sm text-gray-900">{{ $pedido->total_itens }} ite{{ $pedido->total_itens > 1 ? 'ns' : 'm' }}</p>
-                                                        @if($pedido->itens->count() > 0)
-                                                            <ul class="mt-1 text-sm text-gray-600">
-                                                                @foreach($pedido->itens->take(2) as $item)
-                                                                    <li class="truncate">
-                                                                        {{ $item->quantidade }}x {{ $item->produto->nome ?? 'Produto não encontrado' }}
-                                                                    </li>
-                                                                @endforeach
-                                                                @if($pedido->itens->count() > 2)
-                                                                    <li class="text-indigo-600">+{{ $pedido->itens->count() - 2 }} mais</li>
-                                                                @endif
-                                                            </ul>
-                                                        @endif
-                                                    </div>
-                                                    
-                                                    @if($pedido->enderecoEntrega)
-                                                    <div>
-                                                        <h4 class="text-sm font-medium text-gray-500 mb-1">Entrega</h4>
-                                                        <p class="text-sm text-gray-900">{{ $pedido->enderecoEntrega->cidade }}/{{ $pedido->enderecoEntrega->estado }}</p>
-                                                        <p class="text-xs text-gray-500 truncate">{{ $pedido->enderecoEntrega->logradouro }}, {{ $pedido->enderecoEntrega->numero }}</p>
-                                                    </div>
-                                                    @endif
-                                                    
-                                                    <div class="text-right">
-                                                        <h4 class="text-sm font-medium text-gray-500">Valor total</h4>
-                                                        <p class="text-lg font-bold text-gray-900">R$ {{ number_format($pedido->valor_final, 2, ',', '.') }}</p>
-                                                        <div class="mt-2 space-x-2">
-                                                            <a href="{{ route('pedidos.show', $pedido->id) }}" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                                                <i class="bi bi-eye-fill mr-1"></i> Detalhes
-                                                            </a>
-                                                            @if($pedido->podeSerCancelado())
-                                                                <form action="{{ route('pedidos.cancel', $pedido->id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja cancelar este pedido?');">
-                                                                    @csrf
-                                                                    @method('PATCH')
-                                                                    <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-red-300 shadow-sm text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                                                                        <i class="bi bi-x-circle-fill mr-1"></i> Cancelar
-                                                                    </button>
-                                                                </form>
-                                                            @endif
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                            {{-- Histórico de Pedidos --}}
+                            @if(isset($pedidos) && count($pedidos) > 0)
+                            <div class="row mt-5">
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm rounded-3">
+                                        <div class="card-header bg-white border-bottom py-3">
+                                            <h5 class="mb-0 fw-semibold"><i class="bi bi-clock-history me-2"></i>Histórico de Pedidos</h5>
                                         </div>
-                                    @endforeach
-                                </div>
-                                
-                                {{-- Paginação --}}
-                                @if($pedidos->hasPages())
-                                    <div class="mt-6 flex flex-col sm:flex-row justify-between items-center text-sm text-gray-700">
-                                        <div class="mb-2 sm:mb-0">
-                                            Mostrando <span class="font-medium">{{ $pedidos->firstItem() }}</span> a 
-                                            <span class="font-medium">{{ $pedidos->lastItem() }}</span> de 
-                                            <span class="font-medium">{{ $pedidos->total() }}</span> pedidos
-                                        </div>
-                                        
-                                        <div class="flex space-x-1">
-                                            {{-- Botão Anterior --}}
-                                            @if($pedidos->onFirstPage())
-                                                <span class="px-3 py-1 bg-gray-100 rounded-md text-gray-400 cursor-not-allowed">
-                                                    &larr; Anterior
-                                                </span>
-                                            @else
-                                                <a href="{{ $pedidos->previousPageUrl() }}" class="px-3 py-1 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                                                    &larr; Anterior
-                                                </a>
-                                            @endif
-                                            
-                                            {{-- Botão Próximo --}}
-                                            @if($pedidos->hasMorePages())
-                                                <a href="{{ $pedidos->nextPageUrl() }}" class="px-3 py-1 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                                                    Próximo &rarr;
-                                                </a>
-                                            @else
-                                                <span class="px-3 py-1 bg-gray-100 rounded-md text-gray-400 cursor-not-allowed">
-                                                    Próximo &rarr;
-                                                </span>
-                                            @endif
+                                        <div class="card-body p-0">
+                                            <div class="table-responsive">
+                                                <table class="table align-middle table-hover mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Código</th>
+                                                            <th>Data</th>
+                                                            <th>Status</th>
+                                                            <th>Total</th>
+                                                            <th>Detalhes</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach($pedidos as $pedido)
+                                                            @php
+                                                                $statusClasses = [
+                                                                    'pending' => 'bg-warning-subtle text-warning-emphasis',
+                                                                    'pendente' => 'bg-warning-subtle text-warning-emphasis',
+                                                                    'processing' => 'bg-info-subtle text-info-emphasis',
+                                                                    'em_processamento' => 'bg-info-subtle text-info-emphasis',
+                                                                    'pago' => 'bg-info-subtle text-info-emphasis',
+                                                                    'shipped' => 'bg-primary-subtle text-primary-emphasis',
+                                                                    'enviado' => 'bg-primary-subtle text-primary-emphasis',
+                                                                    'delivered' => 'bg-success-subtle text-success-emphasis',
+                                                                    'entregue' => 'bg-success-subtle text-success-emphasis',
+                                                                    'cancelled' => 'bg-danger-subtle text-danger-emphasis',
+                                                                    'cancelado' => 'bg-danger-subtle text-danger-emphasis',
+                                                                ][$pedido->status] ?? 'bg-light text-dark';
+                                                            @endphp
+                                                            <tr>
+                                                                <td>{{ $pedido->codigo }}</td>
+                                                                <td>{{ $pedido->created_at->format('d/m/Y H:i') }}</td>
+                                                                <td>
+                                                                    <span class="badge {{ $statusClasses }}">{{ ucfirst($pedido->status) }}</span>
+                                                                </td>
+                                                                <td>R$ {{ number_format($pedido->valor_final, 2, ',', '.') }}</td>
+                                                                <td>
+                                                                    <a href="{{ route('pedidos.show', $pedido->id) }}" class="btn btn-sm btn-outline-secondary" title="Ver detalhes">
+                                                                        <i class="bi bi-eye"></i>
+                                                                    </a>
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
                                     </div>
-                                @endif
+                                </div>
+                            </div>
                             @else
                                 <div class="text-center py-12">
                                     <div class="mx-auto w-20 h-20 flex items-center justify-center bg-gray-100 rounded-full mb-4">
@@ -254,7 +187,7 @@
                                     </a>
                                 </div>
                             @endif
-                    </div>
+                        </div>
 
                     {{-- Seção de Exclusão de Conta --}}
                     <div x-show="activeTab === 'perfil'" class="bg-white rounded-lg shadow-sm overflow-hidden border border-red-100 mt-6">
