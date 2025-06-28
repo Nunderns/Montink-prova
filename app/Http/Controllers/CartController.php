@@ -250,11 +250,14 @@ class CartController extends Controller
             // Determinar o status inicial respeitando esquemas mais antigos
             $status = 'pending';
             try {
-                $info = \DB::selectOne("SHOW COLUMNS FROM pedidos WHERE Field = 'status'");
-                if ($info && isset($info->Type) && str_contains($info->Type, 'pendente')) {
+                $column = \DB::selectOne(
+                    "SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pedidos' AND COLUMN_NAME = 'status'"
+                );
+                if ($column && isset($column->COLUMN_TYPE) && str_contains($column->COLUMN_TYPE, 'pendente')) {
                     $status = 'pendente';
                 }
             } catch (\Exception $e) {
+                \Log::warning('Não foi possível detectar tipo da coluna status', ['error' => $e->getMessage()]);
                 // Se a consulta falhar, usa o valor padrão
             }
             $pedido->status = $status;
@@ -340,10 +343,12 @@ class CartController extends Controller
             // Log do erro para depuração
             \Log::error('Erro ao finalizar pedido: ' . $e->getMessage());
             \Log::error($e->getTraceAsString());
-            
+
             return redirect()->route('carrinho.index')
-                ->with('error', 'Ocorreu um erro ao processar seu pedido. Por favor, tente novamente. ' . 
-                      ($e instanceof \Illuminate\Database\QueryException ? 'Erro no banco de dados.' : ''));
+                ->with('error', 'Ocorreu um erro ao processar seu pedido. Por favor, tente novamente. '
+                      . ($e instanceof \Illuminate\Database\QueryException
+                          ? 'Erro no banco de dados: ' . $e->getMessage()
+                          : $e->getMessage()));
         }
     }
     
