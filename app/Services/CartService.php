@@ -178,4 +178,102 @@ class CartService
     {
         return $produtoId . '_' . ($variacaoId ?: '0');
     }
+
+    /**
+     * Aplica um cupom ao carrinho
+     */
+    public function applyCoupon(string $code): array
+    {
+        $coupon = \App\Models\Coupon::where('code', $code)
+            ->where('is_active', true)
+            ->where('valid_until', '>', now())
+            ->where(function($query) {
+                $query->whereNull('usage_limit')
+                      ->orWhereRaw('usage_count < usage_limit');
+            })
+            ->first();
+
+        if (!$coupon) {
+            return [
+                'success' => false,
+                'message' => 'Cupom inválido ou expirado.'
+            ];
+        }
+
+        $subtotal = $this->calculateSubtotal();
+        
+        if ($coupon->min_order_value && $subtotal < $coupon->min_order_value) {
+            return [
+                'success' => false,
+                'message' => sprintf('O valor mínimo para este cupom é R$ %s', number_format($coupon->min_order_value, 2, ',', '.'))
+            ];
+        }
+
+        // Salva o cupom na sessão
+        Session::put('applied_coupon', [
+            'id' => $coupon->id,
+            'code' => $coupon->code,
+            'type' => $coupon->type,
+            'value' => $coupon->value,
+            'min_order_value' => $coupon->min_order_value
+        ]);
+
+        return [
+            'success' => true,
+            'message' => 'Cupom aplicado com sucesso!',
+            'coupon' => $coupon->only(['code', 'type', 'value'])
+        ];
+    }
+
+    /**
+     * Remove o cupom aplicado
+     */
+    public function removeCoupon(): void
+    {
+        Session::forget('applied_coupon');
+    }
+
+    /**
+     * Obtém o cupom atualmente aplicado
+     */
+    public function getAppliedCoupon(): ?array
+    {
+        return Session::get('applied_coupon');
+    }
+
+    /**
+     * Calcula o desconto do cupom
+     */
+    public function calculateDiscount(float $subtotal): float
+    {
+        $coupon = $this->getAppliedCoupon();
+        
+        if (!$coupon) {
+            return 0;
+        }
+
+        if ($coupon['type'] === 'percent') {
+            return ($coupon['value'] / 100) * $subtotal;
+        }
+
+        return min($coupon['value'], $subtotal);
+    }
+
+    /**
+     * Obtém o total do carrinho com desconto
+     */
+    public function calculateTotal(): array
+    {
+        $subtotal = $this->calculateSubtotal();
+        $shipping = $this->calcularFrete($subtotal);
+        $discount = $this->calculateDiscount($subtotal);
+        $total = max(0, $subtotal + $shipping - $discount);
+
+        return [
+            'subtotal' => $subtotal,
+            'shipping' => $shipping,
+            'discount' => $discount,
+            'total' => $total
+        ];
+    }
 }

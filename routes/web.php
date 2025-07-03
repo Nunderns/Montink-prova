@@ -57,6 +57,14 @@ Route::get('/', function () {
         // Finalizar compra
         Route::post('/finalizar', [CartController::class, 'finalizar'])
             ->name('finalizar');
+            
+        // Aplicar cupom
+        Route::post('/aplicar-cupom', [CartController::class, 'applyCoupon'])
+            ->name('aplicar-cupom');
+            
+        // Remover cupom
+        Route::post('/remover-cupom', [CartController::class, 'removeCoupon'])
+            ->name('remover-cupom');
     });
     // Dashboard
     Route::get('/dashboard', function () {
@@ -113,3 +121,17 @@ Route::get('/debug', function() {
 
 // Rota de exibição de produto deve vir por último para não conflitar com /create
 Route::get('/produtos/{produto}', [ProdutoController::class, 'show'])->name('produtos.show');
+
+// Rotas de administração de cupons
+Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+    Route::resource('coupons', \App\Http\Controllers\Admin\CouponController::class)->except(['show']);
+});
+
+// Rotas para gerenciamento de cupons no carrinho
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::post('/carrinho/aplicar-cupom', [\App\Http\Controllers\CartController::class, 'applyCoupon'])
+        ->name('carrinho.aplicar-cupom');
+        
+    Route::post('/carrinho/remover-cupom', [\App\Http\Controllers\CartController::class, 'removeCoupon'])
+        ->name('carrinho.remover-cupom');
+});
