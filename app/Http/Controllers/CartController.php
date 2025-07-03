@@ -20,9 +20,7 @@ class CartController extends Controller
     public function index()
     {
         $cartItems = $this->cart->buildCartItems();
-        $subtotal = $this->cart->calculateSubtotal();
-        $shipping = $this->calculateShipping($subtotal);
-        $total = $subtotal + $shipping;
+        $totals = $this->cart->calculateTotal();
         
         // Buscar histórico de pedidos do usuário autenticado
         $pedidos = [];
@@ -35,9 +33,10 @@ class CartController extends Controller
 
         return view('carrinho.index', [
             'itens' => $cartItems,
-            'subtotal' => $subtotal,
-            'shipping' => $shipping,
-            'total' => $total,
+            'subtotal' => $totals['subtotal'],
+            'shipping' => $totals['shipping'],
+            'discount' => $totals['discount'],
+            'total' => $totals['total'],
             'pedidos' => $pedidos
         ]);
     }
@@ -451,8 +450,43 @@ class CartController extends Controller
     }
     
     // Método mantido para compatibilidade, mas a lógica foi movida para o CartService
-    private function calculateShipping($subtotal)
+    public function calculateShipping(float $subtotal): float
     {
         return $this->cart->calcularFrete($subtotal);
+    }
+    
+    /**
+     * Aplica um cupom de desconto ao carrinho
+     */
+    public function applyCoupon(Request $request)
+    {
+        $request->validate([
+            'coupon_code' => 'required|string|max:50'
+        ]);
+        
+        $result = $this->cart->applyCoupon($request->coupon_code);
+        
+        if ($request->expectsJson()) {
+            return response()->json($result);
+        }
+        
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+    
+    /**
+     * Remove o cupom de desconto do carrinho
+     */
+    public function removeCoupon(Request $request)
+    {
+        $this->cart->removeCoupon();
+        
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Cupom removido com sucesso!'
+            ]);
+        }
+        
+        return back()->with('success', 'Cupom removido com sucesso!');
     }
 }
