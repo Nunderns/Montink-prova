@@ -15,17 +15,17 @@ class PedidoItem extends Model
     protected $fillable = [
         'pedido_id',
         'produto_id',
-        'estoque_id',
+        'variacao_id',
         'variacao',
         'quantidade',
         'preco_unitario',
-        'subtotal',
+        'total',
     ];
 
     protected $casts = [
         'quantidade' => 'integer',
         'preco_unitario' => 'decimal:2',
-        'subtotal' => 'decimal:2',
+        'total' => 'decimal:2',
     ];
 
     public function pedido()
@@ -38,8 +38,8 @@ class PedidoItem extends Model
         return $this->belongsTo(Produto::class);
     }
 
-    public function estoque()
+    public function variacao()
     {
-        return $this->belongsTo(Estoque::class);
+        return $this->belongsTo(Estoque::class, 'variacao_id');
     }
 }
