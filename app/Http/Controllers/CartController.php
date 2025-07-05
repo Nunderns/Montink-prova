@@ -425,6 +425,18 @@ class CartController extends Controller
             // Limpar o carrinho após a finalização
             $this->cart->clear();
             
+            // Disparar evento de pedido criado para enviar e-mail
+            \Log::info('Iniciando disparo do evento OrderPlaced', ['pedido_id' => $pedido->id]);
+            try {
+                event(new \App\Events\OrderPlaced($pedido));
+                \Log::info('Evento OrderPlaced disparado com sucesso', ['pedido_id' => $pedido->id]);
+            } catch (\Exception $e) {
+                \Log::error('Erro ao disparar evento OrderPlaced: ' . $e->getMessage(), [
+                    'pedido_id' => $pedido->id,
+                    'exception' => $e->getTraceAsString()
+                ]);
+            }
+            
             // Log do redirecionamento
             $redirectUrl = route('pedidos.show', ['pedido' => $pedido->id]);
             \Log::info('Redirecionando para', ['url' => $redirectUrl]);
