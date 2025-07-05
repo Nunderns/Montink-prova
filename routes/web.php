@@ -112,18 +112,24 @@ Route::get('/', function () {
 // Rota de depuração temporária
 Route::get('/debug', function() {
     return response()->json([
-        'routes' => \Illuminate\Support\Facades\Route::getRoutes()->getRoutes(),
         'current_route' => request()->path(),
         'is_authenticated' => auth()->check(),
         'user' => auth()->user(),
+        'is_admin' => auth()->check() ? auth()->user()->isAdmin() : false,
+        'roles' => auth()->check() ? auth()->user()->getRoleNames() : [],
     ]);
 });
+
+// Rota de teste para admin
+Route::get('/admin/test', function() {
+    return 'Você é um administrador!';
+})->middleware(['auth', 'admin']);
 
 // Rota de exibição de produto deve vir por último para não conflitar com /create
 Route::get('/produtos/{produto}', [ProdutoController::class, 'show'])->name('produtos.show');
 
 // Rotas de administração de cupons
-Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::resource('coupons', \App\Http\Controllers\Admin\CouponController::class)->except(['show']);
 });
 
