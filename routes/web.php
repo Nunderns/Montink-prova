@@ -1,11 +1,13 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Http;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProdutoController;
-use App\Http\Controllers\CarrinhoController;
-use App\Http\Controllers\CartController;
 use App\Http\Controllers\PedidoController;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\CarrinhoController;
+use App\Http\Controllers\TestWebhookController;
+use App\Http\Controllers\CartController;
 
 // Rota de teste
 Route::get('/teste', function() {
@@ -110,6 +112,29 @@ Route::get('/', function () {
 });
 
 // Rota de depuração temporária
+// Rotas de teste para webhook (apenas em ambiente local)
+if (app()->environment('local')) {
+    Route::get('/test/webhook/update', [TestWebhookController::class, 'testWebhook']);
+    Route::get('/test/webhook/cancel', [TestWebhookController::class, 'testCancelOrder']);
+    
+    // Rota para testar o webhook via POST
+    Route::get('/test-webhook', function () {
+        $response = Http::withHeaders([
+            'Content-Type' => 'application/json',
+            'X-API-Key' => env('WEBHOOK_API_KEY')
+        ])->post('http://'.request()->getHttpHost().'/api/webhook/order-update', [
+            'id' => 1, // ID do pedido para teste
+            'status' => 'em_processamento',
+            'test' => true
+        ]);
+
+        return [
+            'status' => $response->status(),
+            'response' => $response->json()
+        ];
+    });
+}
+
 Route::get('/debug', function() {
     return response()->json([
         'current_route' => request()->path(),

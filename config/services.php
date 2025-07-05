@@ -35,4 +35,24 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Webhook Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configurações para webhooks da aplicação
+    |
+    */
+    'webhook' => [
+        // Chave de API para autenticação de webhooks (opcional, mas recomendado)
+        'api_key' => env('WEBHOOK_API_KEY', 'sua_chave_secreta_aqui'),
+        
+        // IPs permitidos (opcional, para restrição de acesso)
+        'allowed_ips' => env('WEBHOOK_ALLOWED_IPS') ? 
+            explode(',', env('WEBHOOK_ALLOWED_IPS')) : null,
+            
+        // Habilitar/desabilitar verificação de IP
+        'enable_ip_restriction' => env('WEBHOOK_ENABLE_IP_RESTRICTION', false),
+    ],
+
 ];
