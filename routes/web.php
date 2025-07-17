@@ -19,7 +19,9 @@ Route::get('/teste', function() {
 Route::get('/api/cep/buscar', [CepController::class, 'buscarCep']);
 
 // Rota principal redireciona para a lista de produtos
-Route::redirect('/', '/produtos');
+Route::get('/', function () {
+    return redirect()->route('produtos.index');
+})->name('home');
 
 // Rotas de autenticação
 require __DIR__.'/auth.php';
@@ -31,10 +33,6 @@ Route::get('/produtos', [ProdutoController::class, 'index'])->name('produtos.ind
 Route::middleware(['auth', 'verified'])->group(function () {
     // Alternar status do produto
     Route::post('/produtos/{produto}/toggle-status', [ProdutoController::class, 'toggleStatus'])->name('produtos.toggle-status');
-    // Página inicial
-Route::get('/', function () {
-    return redirect()->route('produtos.index');
-})->name('home');
 
     // Rotas do carrinho de compras
     Route::prefix('carrinho')->name('carrinho.')->group(function () {
