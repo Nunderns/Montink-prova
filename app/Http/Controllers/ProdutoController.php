@@ -20,8 +20,7 @@ class ProdutoController extends Controller
      */
     public function __construct()
     {
-        // Apply auth middleware to all methods except index and show
-        $this->middleware('auth')->except(['index', 'show']);
+        // Removido o middleware de autenticação para permitir acesso público
     }
 
     /**

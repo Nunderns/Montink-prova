@@ -4,14 +4,27 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User;
 use App\Models\Cupom;
 use App\Models\PedidoItem;
 use App\Models\UserAddress;
+use App\Notifications\OrderPlaced;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Log;
 
 class Pedido extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+    
+    /**
+     * The event map for the model.
+     *
+     * @var array
+     */
+    protected $dispatchesEvents = [
+        'created' => \App\Events\OrderPlaced::class,
+    ];
 
     protected $fillable = [
         'codigo',

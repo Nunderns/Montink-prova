@@ -1,19 +1,27 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Http;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProdutoController;
-use App\Http\Controllers\CarrinhoController;
-use App\Http\Controllers\CartController;
 use App\Http\Controllers\PedidoController;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\CarrinhoController;
+use App\Http\Controllers\TestWebhookController;
+use App\Http\Controllers\CartController;
+use App\Http\Controllers\Api\CepController;
 
 // Rota de teste
 Route::get('/teste', function() {
     return 'Teste de rota funcionando!';
 });
 
+// Rota para busca de CEP
+Route::get('/api/cep/buscar', [CepController::class, 'buscarCep']);
+
 // Rota principal redireciona para a lista de produtos
-Route::redirect('/', '/produtos');
+Route::get('/', function () {
+    return redirect()->route('produtos.index');
+})->name('home');
 
 // Rotas de autenticação
 require __DIR__.'/auth.php';
@@ -25,10 +33,6 @@ Route::get('/produtos', [ProdutoController::class, 'index'])->name('produtos.ind
 Route::middleware(['auth', 'verified'])->group(function () {
     // Alternar status do produto
     Route::post('/produtos/{produto}/toggle-status', [ProdutoController::class, 'toggleStatus'])->name('produtos.toggle-status');
-    // Página inicial
-Route::get('/', function () {
-    return redirect()->route('produtos.index');
-})->name('home');
 
     // Rotas do carrinho de compras
     Route::prefix('carrinho')->name('carrinho.')->group(function () {
@@ -110,20 +114,49 @@ Route::get('/', function () {
 });
 
 // Rota de depuração temporária
+// Rotas de teste para webhook (apenas em ambiente local)
+if (app()->environment('local')) {
+    Route::get('/test/webhook/update', [TestWebhookController::class, 'testWebhook']);
+    Route::get('/test/webhook/cancel', [TestWebhookController::class, 'testCancelOrder']);
+    
+    // Rota para testar o webhook via POST
+    Route::get('/test-webhook', function () {
+        $response = Http::withHeaders([
+            'Content-Type' => 'application/json',
+            'X-API-Key' => env('WEBHOOK_API_KEY')
+        ])->post('http://'.request()->getHttpHost().'/api/webhook/order-update', [
+            'id' => 1, // ID do pedido para teste
+            'status' => 'em_processamento',
+            'test' => true
+        ]);
+
+        return [
+            'status' => $response->status(),
+            'response' => $response->json()
+        ];
+    });
+}
+
 Route::get('/debug', function() {
     return response()->json([
-        'routes' => \Illuminate\Support\Facades\Route::getRoutes()->getRoutes(),
         'current_route' => request()->path(),
         'is_authenticated' => auth()->check(),
         'user' => auth()->user(),
+        'is_admin' => auth()->check() ? auth()->user()->isAdmin() : false,
+        'roles' => auth()->check() ? auth()->user()->getRoleNames() : [],
     ]);
 });
+
+// Rota de teste para admin
+Route::get('/admin/test', function() {
+    return 'Você é um administrador!';
+})->middleware(['auth', 'admin']);
 
 // Rota de exibição de produto deve vir por último para não conflitar com /create
 Route::get('/produtos/{produto}', [ProdutoController::class, 'show'])->name('produtos.show');
 
 // Rotas de administração de cupons
-Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::resource('coupons', \App\Http\Controllers\Admin\CouponController::class)->except(['show']);
 });
 
