@@ -124,19 +124,26 @@
                 <div class="md:col-span-1">
                     <x-input-label for="cep" value="CEP" />
                     <div class="flex">
-                        <x-text-input 
-                            id="cep" 
-                            name="cep" 
-                            type="text" 
-                            class="w-full" 
-                            placeholder="00000-000"
-                            x-mask="99999-999"
-                        />
-                        <button type="button" 
-                                class="ml-2 px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                onclick="buscarCEP()">
-                            Buscar
-                        </button>
+                        <div class="flex">
+                            <x-text-input 
+                                id="cep" 
+                                name="cep" 
+                                type="text" 
+                                class="mt-1 block w-full rounded-r-none" 
+                                placeholder="00000-000" 
+                                onblur="this.value = this.value.replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$3')"
+                                onkeypress="return (event.charCode >= 48 && event.charCode <= 57) || event.charCode === 0"
+                                maxlength="9"
+                                required />
+                            <button 
+                                type="button"
+                                id="buscar-cep-btn"
+                                onclick="buscarCEP()"
+                                class="mt-1 inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-r-md font-medium text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                                title="Buscar CEP">
+                                <i class="bi bi-search me-1"></i> Buscar
+                            </button>
+                        </div>
                     </div>
                     <x-input-error :messages="$errors->get('cep')" class="mt-1" />
                 </div>
@@ -275,31 +282,72 @@
 
 @push('scripts')
 <script>
-    // Função para buscar CEP na API ViaCEP
+    // Função para buscar CEP na nossa API
     function buscarCEP() {
-        const cep = document.getElementById('cep').value.replace(/\D/g, '');
+        const cepInput = document.getElementById('cep');
+        const cep = cepInput.value.replace(/\D/g, '');
+        const buscarCepBtn = document.getElementById('buscar-cep-btn');
+        const originalBtnText = buscarCepBtn.innerHTML;
         
         if (cep.length !== 8) {
             alert('Por favor, digite um CEP válido com 8 dígitos.');
+            cepInput.focus();
             return;
         }
         
-        fetch(`https://viacep.com.br/ws/${cep}/json/`)
-            .then(response => response.json())
+        // Mostrar loading no botão
+        buscarCepBtn.disabled = true;
+        buscarCepBtn.innerHTML = '<i class="bi bi-arrow-repeat animate-spin"></i> Buscando...';
+        
+        // Limpar mensagens de erro
+        const errorElement = document.getElementById('cep-error');
+        if (errorElement) {
+            errorElement.remove();
+        }
+        
+        // Chamar nossa API personalizada
+        fetch(`/api/cep/buscar?cep=${cep}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao buscar CEP');
+                }
+                return response.json();
+            })
             .then(data => {
-                if (data.erro) {
-                    throw new Error('CEP não encontrado');
+                if (!data.success) {
+                    throw new Error(data.message || 'CEP não encontrado');
                 }
                 
-                document.getElementById('logradouro').value = data.logradouro;
-                document.getElementById('bairro').value = data.bairro;
-                document.getElementById('cidade').value = data.localidade;
-                document.getElementById('estado').value = data.uf;
+                // Preencher os campos com os dados retornados
+                document.getElementById('logradouro').value = data.data.logradouro || '';
+                document.getElementById('bairro').value = data.data.bairro || '';
+                document.getElementById('cidade').value = data.data.cidade || '';
+                document.getElementById('estado').value = data.data.estado || '';
+                
+                // Focar no campo de número
                 document.getElementById('numero').focus();
             })
             .catch(error => {
                 console.error('Erro ao buscar CEP:', error);
-                alert('Não foi possível encontrar o endereço para o CEP informado.');
+                
+                // Adicionar mensagem de erro abaixo do campo CEP
+                const errorElement = document.createElement('p');
+                errorElement.id = 'cep-error';
+                errorElement.className = 'mt-1 text-sm text-red-600';
+                errorElement.textContent = 'CEP não encontrado. Por favor, verifique o número e tente novamente.';
+                
+                const cepContainer = cepInput.closest('div');
+                if (cepContainer && !document.getElementById('cep-error')) {
+                    cepContainer.appendChild(errorElement);
+                }
+                
+                // Focar no campo de CEP para correção
+                cepInput.focus();
+            })
+            .finally(() => {
+                // Restaurar o botão
+                buscarCepBtn.disabled = false;
+                buscarCepBtn.innerHTML = originalBtnText;
             });
     }
     

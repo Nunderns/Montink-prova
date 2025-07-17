@@ -8,11 +8,15 @@ use App\Http\Controllers\PedidoController;
 use App\Http\Controllers\CarrinhoController;
 use App\Http\Controllers\TestWebhookController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\Api\CepController;
 
 // Rota de teste
 Route::get('/teste', function() {
     return 'Teste de rota funcionando!';
 });
+
+// Rota para busca de CEP
+Route::get('/api/cep/buscar', [CepController::class, 'buscarCep']);
 
 // Rota principal redireciona para a lista de produtos
 Route::redirect('/', '/produtos');
